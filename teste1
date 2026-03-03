@@ -1,13 +1,35 @@
+
+há menos de um minuto
+Analisando o script Lua do Roblox, identifiquei vários problemas com a lógica do ESP e do Aimbot. Vamos analisá-los e corrigi-los:
+
+Problemas de ESP:
+
+SelectionBox.LineAlphanão é uma propriedade válida — deveria ser SurfaceTransparencyou simplesmente removida.
+A lógica de limpeza de caixas é executada mesmo quando o ESP está ATIVADO (ela destrói caixas para jogadores que não o têm HumanoidRootPart, mas a condição está incorreta).
+A caixa está vinculada a p.Characterum objeto que é destruído ao reiniciar — deveria estar vinculada a um espaço de trabalho ou a uma pasta.
+Problemas com o aimbot:
+
+Camera:WorldToViewportPoint()retorna 3 valores: (Vector3, boolean, number)— a variável screené na verdade um onScreenbooleano, mas a desestruturação está incorreta (retorna " pos, onScreen, depthnão pos, screen")
+O bloqueio da câmera pode ser anulado pelos scripts de câmera do jogo.
+Segue o roteiro corrigido:
+
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
 
 -- 1. INTERFACE DE CONTROLE
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "Painel_Zurion_Real"
-ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+-- Tenta CoreGui primeiro, senão usa PlayerGui
+local success = pcall(function()
+    ScreenGui.Parent = game:GetService("CoreGui")
+end)
+if not success then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
 
 local Frame = Instance.new("Frame")
 Frame.Size = UDim2.new(0, 160, 0, 100)
@@ -34,10 +56,21 @@ AimBtn.TextColor3 = Color3.new(1,1,1)
 local _ESP = false
 local _AIM = false
 
+-- Pasta para guardar os SelectionBoxes (evita sumir no respawn)
+local EspFolder = Instance.new("Folder")
+EspFolder.Name = "ESP_Boxes"
+EspFolder.Parent = workspace
+
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
     EspBtn.Text = _ESP and "ESP: ON" or "ESP: OFF"
     EspBtn.BackgroundColor3 = _ESP and Color3.new(0, 0.5, 0) or Color3.new(0.5, 0, 0)
+    -- Limpa todos os boxes ao desligar
+    if not _ESP then
+        for _, box in pairs(EspFolder:GetChildren()) do
+            box:Destroy()
+        end
+    end
 end)
 
 AimBtn.MouseButton1Click:Connect(function()
@@ -48,47 +81,77 @@ end)
 
 -- LÓGICA DE EXECUÇÃO
 RunService.RenderStepped:Connect(function()
+    -- ESP
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            -- ESP: USANDO SELECTIONBOX (ATRAVESSA TUDO)
-            local box = p.Character:FindFirstChild("Auditoria_Box")
-            if _ESP and p.Character:FindFirstChild("HumanoidRootPart") then
-                if not box then
-                    box = Instance.new("SelectionBox")
-                    box.Name = "Auditoria_Box"
+        if p ~= LocalPlayer then
+            local boxName = "ESP_" .. p.UserId
+            local existingBox = EspFolder:FindFirstChild(boxName)
+
+            if _ESP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                if not existingBox then
+                    local box = Instance.new("SelectionBox")
+                    box.Name = boxName
                     box.Adornee = p.Character
                     box.Color3 = Color3.new(1, 0, 0)
-                    box.LineAlpha = 0.5 -- Transparência da linha
-                    box.AlwaysOnTop = true -- GARANTE VER ATRAVÉS DA PAREDE
-                    box.Parent = p.Character
+                    box.SurfaceTransparency = 0.5
+                    box.AlwaysOnTop = true
+                    box.Parent = EspFolder
+                else
+                    -- Atualiza o adornee caso o personagem tenha mudado (respawn)
+                    existingBox.Adornee = p.Character
                 end
             else
-                if box then box:Destroy() end
+                if existingBox then
+                    existingBox:Destroy()
+                end
             end
         end
     end
 
-    -- AIMBOT: TRAVA DE MIRA REAL
+    -- AIMBOT
     if _AIM then
         local target = nil
-        local dist = 1000
+        local closestDist = math.huge
+
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                if p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-                    local pos, screen = Camera:WorldToViewportPoint(p.Character.Head.Position)
-                    if screen then
-                        local mDist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                        if mDist < dist then
-                            dist = mDist
+            if p ~= LocalPlayer and p.Character then
+                local head = p.Character:FindFirstChild("Head")
+                local humanoid = p.Character:FindFirstChild("Humanoid")
+
+                if head and humanoid and humanoid.Health > 0 then
+                    -- WorldToViewportPoint retorna: Vector3(posX, posY, depth), onScreen
+                    local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+
+                    if onScreen then
+                        local center = Vector2.new(
+                            Camera.ViewportSize.X / 2,
+                            Camera.ViewportSize.Y / 2
+                        )
+                        local mDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+
+                        if mDist < closestDist then
+                            closestDist = mDist
                             target = p
                         end
                     end
                 end
             end
         end
-        if target then
-            -- MODO AGRESSIVO: Força a CFrame da Câmera a olhar para o Alvo
+
+        if target and target.Character and target.Character:FindFirstChild("Head") then
+            -- Desbloqueia o tipo de câmera para permitir override
+            Camera.CameraType = Enum.CameraType.Scriptable
             Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
         end
+    else
+        -- Restaura câmera normal quando aimbot está OFF
+        if Camera.CameraType == Enum.CameraType.Scriptable then
+            Camera.CameraType = Enum.CameraType.Custom
+        end
     end
+end)
+
+-- Limpa a pasta ESP ao sair
+game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
+    if EspFolder then EspFolder:Destroy() end
 end)
