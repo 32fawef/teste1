@@ -1,296 +1,207 @@
 -- ============================================================
--- ZURION PRO v7 MOBILE - AIMBOT CORRIGIDO (câmera livre)
--- Aimbot OLHA para o inimigo mas não trava o movimento
+-- ZURION PRO v7 MOBILE - DEFINITIVO
+-- Aimbot Suave + ESP Highlight + Speed Multiplier
 -- ============================================================
 
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
 local LocalPlayer      = Players.LocalPlayer
 local Camera           = workspace.CurrentCamera
-
-local SPEED_BASE = 16
+local SPEED_BASE       = 16
 
 -- ============================================================
--- GUI
+-- GUI - INTERFACE VISUAL
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionV7"
+ScreenGui.Name = "ZurionV7_Final"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
-local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
-if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
+-- Tenta colocar no CoreGui para esconder de prints/logs
+local sucesso, erro = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
+if not sucesso then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- Botão para reabrir o menu
 local OpenBtn = Instance.new("TextButton")
-OpenBtn.Size = UDim2.new(0, 100, 0, 36)
-OpenBtn.Position = UDim2.new(0, 20, 0, 20)
+OpenBtn.Size = UDim2.new(0, 80, 0, 35)
+OpenBtn.Position = UDim2.new(0, 10, 0.5, 0)
 OpenBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
-OpenBtn.BorderSizePixel = 0
-OpenBtn.Text = "⚡ ZURION"
+OpenBtn.Text = "ABRIR"
 OpenBtn.TextColor3 = Color3.new(1, 1, 1)
-OpenBtn.Font = Enum.Font.GothamBold
-OpenBtn.TextSize = 14
 OpenBtn.Visible = false
 OpenBtn.Parent = ScreenGui
-Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", OpenBtn)
 
+-- Painel Principal
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 240, 0, 280)
-Main.Position = UDim2.new(0, 20, 0, 20)
-Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-Main.BorderSizePixel = 0
+Main.Size = UDim2.new(0, 220, 0, 300)
+Main.Position = UDim2.new(0.5, -110, 0.5, -150)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", Main)
 
-local TBar = Instance.new("Frame")
-TBar.Size = UDim2.new(1, 0, 0, 36)
-TBar.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
-TBar.BorderSizePixel = 0
-TBar.Parent = Main
-Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 10)
-
-local TitleLbl = Instance.new("TextLabel")
-TitleLbl.Size = UDim2.new(1, -44, 1, 0)
-TitleLbl.Position = UDim2.new(0, 10, 0, 0)
-TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ ZURION PRO v7"
-TitleLbl.TextColor3 = Color3.new(1, 1, 1)
-TitleLbl.Font = Enum.Font.GothamBold
-TitleLbl.TextSize = 14
-TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
-TitleLbl.Parent = TBar
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+Title.Text = "⚡ ZURION PRO v7"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.Parent = Main
+Instance.new("UICorner", Title)
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -36, 0, 2)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -35, 0, 2.5)
+CloseBtn.Text = "X"
 CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-CloseBtn.BorderSizePixel = 0
-CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 15
-CloseBtn.Parent = TBar
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+CloseBtn.Parent = Title
+Instance.new("UICorner", CloseBtn)
 
+-- Container de Botões
 local C = Instance.new("Frame")
-C.Size = UDim2.new(1, 0, 1, -36)
-C.Position = UDim2.new(0, 0, 0, 36)
+C.Size = UDim2.new(1, 0, 1, -40)
+C.Position = UDim2.new(0, 0, 0, 40)
 C.BackgroundTransparency = 1
 C.Parent = Main
 
-local function makeBtn(parent, size, pos, color, text)
+local function makeBtn(text, pos)
     local b = Instance.new("TextButton")
-    b.Size = size; b.Position = pos
-    b.BackgroundColor3 = color; b.BorderSizePixel = 0
-    b.Text = text; b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold; b.TextSize = 14
-    b.Parent = parent
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    b.Size = UDim2.new(0.9, 0, 0, 40)
+    b.Position = pos
+    b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.Parent = C
+    Instance.new("UICorner", b)
     return b
 end
 
-local function makeLabel(parent, size, pos, text)
-    local l = Instance.new("TextLabel")
-    l.Size = size; l.Position = pos
-    l.BackgroundTransparency = 1; l.Text = text
-    l.TextColor3 = Color3.new(1, 1, 1); l.Font = Enum.Font.Gotham
-    l.TextSize = 12; l.Parent = parent
-    return l
-end
+local EspBtn   = makeBtn("ESP: OFF", UDim2.new(0.05, 0, 0.05, 0))
+local AimBtn   = makeBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.22, 0))
+local SpeedBtn = makeBtn("SPEED: OFF", UDim2.new(0.05, 0, 0.39, 0))
 
-local EspBtn   = makeBtn(C, UDim2.new(1,-16,0,44), UDim2.new(0,8,0,8),   Color3.fromRGB(100,0,0), "ESP: OFF")
-local AimBtn   = makeBtn(C, UDim2.new(1,-16,0,44), UDim2.new(0,8,0,60),  Color3.fromRGB(100,0,0), "AIMBOT: OFF")
-local SpeedBtn = makeBtn(C, UDim2.new(1,-16,0,44), UDim2.new(0,8,0,112), Color3.fromRGB(100,0,0), "SPEED: OFF")
+local SpeedLbl = Instance.new("TextLabel", C)
+SpeedLbl.Size = UDim2.new(1, 0, 0, 20)
+SpeedLbl.Position = UDim2.new(0, 0, 0.58, 0)
+SpeedLbl.Text = "Velocidade: 5"
+SpeedLbl.TextColor3 = Color3.new(1, 1, 1)
+SpeedLbl.BackgroundTransparency = 1
 
-local SpeedLbl = makeLabel(C, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,164), "Velocidade: nível 5")
-local MinusBtn = makeBtn(C, UDim2.new(0,70,0,36), UDim2.new(0,8,0,184),   Color3.fromRGB(50,50,50), "  −  ")
-local PlusBtn  = makeBtn(C, UDim2.new(0,70,0,36), UDim2.new(1,-78,0,184), Color3.fromRGB(50,50,50), "  +  ")
-
--- ============================================================
--- FECHAR / ABRIR
--- ============================================================
-CloseBtn.MouseButton1Click:Connect(function()
-    Main.Visible = false
-    OpenBtn.Visible = true
-end)
-
-OpenBtn.MouseButton1Click:Connect(function()
-    Main.Visible = true
-    OpenBtn.Visible = false
-end)
+local MinusBtn = makeBtn("-", UDim2.new(0.05, 0, 0.68, 0))
+MinusBtn.Size = UDim2.new(0.4, 0, 0, 35)
+local PlusBtn  = makeBtn("+", UDim2.new(0.55, 0, 0.68, 0))
+PlusBtn.Size = UDim2.new(0.4, 0, 0, 35)
 
 -- ============================================================
--- ESTADO
+-- LÓGICA DE FUNCIONAMENTO
 -- ============================================================
-local _ESP      = false
-local _AIM      = false
-local _SPEED    = false
+local _ESP, _AIM, _SPEED = false, false, false
 local speedLevel = 5
+local EspFolder = Instance.new("Folder", workspace)
 
--- ============================================================
--- ESP COM HIGHLIGHT
--- ============================================================
-local EspFolder = Instance.new("Folder")
-EspFolder.Name = "ESP_Folder"
-EspFolder.Parent = workspace
-
-local function limparESP()
-    for _, v in pairs(EspFolder:GetChildren()) do v:Destroy() end
+-- Função para trocar cor/texto dos botões
+local function toggleBtn(btn, state, text)
+    btn.Text = text .. (state and ": ON" or ": OFF")
+    btn.BackgroundColor3 = state and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(100, 0, 0)
 end
 
-local function aplicarHighlight(character, id)
-    if EspFolder:FindFirstChild(id) then return end
-    local hl = Instance.new("Highlight")
-    hl.Name = id
-    hl.Adornee = character
-    hl.FillColor = Color3.new(1, 0, 0)
-    hl.OutlineColor = Color3.new(1, 1, 1)
-    hl.FillTransparency = 0.5
-    hl.OutlineTransparency = 0
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Parent = EspFolder
-end
+-- Fechar/Abrir
+CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false; OpenBtn.Visible = true end)
+OpenBtn.MouseButton1Click:Connect(function() Main.Visible = true; OpenBtn.Visible = false end)
 
--- ============================================================
--- AIMBOT CORRIGIDO v7
--- Técnica: mantém CameraType = Custom (câmera livre)
--- Apenas ROTACIONA a câmera para olhar para o inimigo
--- O jogador ainda pode se mover normalmente
--- ============================================================
-local function getMelhorAlvo()
-    local melhor, menorDist = nil, math.huge
-    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
-            local hum = p.Character:FindFirstChild("Humanoid")
-            if hrp and hum and hum.Health > 0 then
-                local sp, onScreen = Camera:WorldToViewportPoint(hrp.Position)
-                if onScreen then
-                    local d = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
-                    if d < menorDist then
-                        menorDist = d
-                        melhor = p
-                    end
-                end
-            end
-        end
-    end
-    return melhor
-end
-
--- ============================================================
--- SPEED
--- ============================================================
-local function getWalkSpeed()
-    return SPEED_BASE + speedLevel * 14
-end
-
-local function aplicarSpeed()
-    local char = LocalPlayer.Character
-    if not char then return end
-    local hum = char:FindFirstChild("Humanoid")
-    if hum then
-        hum.WalkSpeed = _SPEED and getWalkSpeed() or SPEED_BASE
-    end
-end
-
-local function atualizarSpeedUI()
-    SpeedLbl.Text = string.format("Velocidade: nível %d  (WalkSpeed %d)", speedLevel, getWalkSpeed())
-    if _SPEED then aplicarSpeed() end
-end
-
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if _SPEED then
-        task.wait(0.5)
-        local hum = char:WaitForChild("Humanoid")
-        hum.WalkSpeed = getWalkSpeed()
-    end
-end)
-
--- ============================================================
--- BOTÕES
--- ============================================================
-local function setBtn(btn, state, onText, offText)
-    btn.Text = state and onText or offText
-    btn.BackgroundColor3 = state and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
-end
-
+-- Funções de Botão
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
-    setBtn(EspBtn, _ESP, "ESP: ON ✔", "ESP: OFF")
-    if not _ESP then limparESP() end
+    toggleBtn(EspBtn, _ESP, "ESP")
+    if not _ESP then EspFolder:ClearAllChildren() end
 end)
 
 AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
-    setBtn(AimBtn, _AIM, "AIMBOT: ON ✔", "AIMBOT: OFF")
+    toggleBtn(AimBtn, _AIM, "AIMBOT")
 end)
 
 SpeedBtn.MouseButton1Click:Connect(function()
     _SPEED = not _SPEED
-    setBtn(SpeedBtn, _SPEED, "SPEED: ON ✔", "SPEED: OFF")
-    aplicarSpeed()
+    toggleBtn(SpeedBtn, _SPEED, "SPEED")
+end)
+
+PlusBtn.MouseButton1Click:Connect(function()
+    speedLevel = math.min(15, speedLevel + 1)
+    SpeedLbl.Text = "Velocidade: " .. speedLevel
 end)
 
 MinusBtn.MouseButton1Click:Connect(function()
     speedLevel = math.max(1, speedLevel - 1)
-    atualizarSpeedUI()
-end)
-
-PlusBtn.MouseButton1Click:Connect(function()
-    speedLevel = math.min(10, speedLevel + 1)
-    atualizarSpeedUI()
+    SpeedLbl.Text = "Velocidade: " .. speedLevel
 end)
 
 -- ============================================================
--- LOOP PRINCIPAL
+-- SISTEMA DE BUSCA DE ALVO
 -- ============================================================
-RunService.RenderStepped:Connect(function()
+local function getClosestPlayer()
+    local target, shortestDist = nil, 600 -- Raio de alcance
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-    -- === ESP ===
-    if _ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local hum = p.Character:FindFirstChild("Humanoid")
-                if hum and hum.Health > 0 then
-                    local id = "HL_" .. p.UserId
-                    local ex = EspFolder:FindFirstChild(id)
-                    if not ex then
-                        aplicarHighlight(p.Character, id)
-                    else
-                        ex.Adornee = p.Character
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local hum = p.Character:FindFirstChild("Humanoid")
+            if hum and hum.Health > 0 then
+                local pos, onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
+                if onScreen then
+                    local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        target = p
                     end
                 end
             end
         end
-        for _, hl in pairs(EspFolder:GetChildren()) do
-            if not hl.Adornee or not hl.Adornee.Parent then hl:Destroy() end
-        end
     end
+    return target
+end
 
-    -- === AIMBOT v7 CORRIGIDO ===
-    -- Mantém CameraType = Custom (câmera livre, jogador pode se mover)
-    -- Apenas rotaciona a câmera para olhar para o inimigo mais próximo
-    if _AIM then
-        local alvo = getMelhorAlvo()
-        if alvo and alvo.Character then
-            local hrp = alvo.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                -- Pega a posição atual da câmera
-                local camPos = Camera.CFrame.Position
-                -- Cria uma CFrame que olha para o inimigo
-                local targetCF = CFrame.new(camPos, hrp.Position)
-                -- Aplica com Lerp suave (0.2 = suave, 1.0 = instantâneo)
-                Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.2)
+-- ============================================================
+-- LOOP PRINCIPAL (RENDER STEPPED)
+-- ============================================================
+RunService.RenderStepped:Connect(function()
+    -- ESP Logic
+    if _ESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local id = "HL_" .. p.Name
+                if not EspFolder:FindFirstChild(id) then
+                    local hl = Instance.new("Highlight")
+                    hl.Name = id
+                    hl.Adornee = p.Character
+                    hl.FillColor = Color3.new(1, 0, 0)
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.Parent = EspFolder
+                end
             end
         end
     end
+
+    -- AIMBOT Logic
+    if _AIM then
+        local target = getClosestPlayer()
+        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
+            local lookAtPos = target.Character.HumanoidRootPart.Position
+            -- Interpolação suave para não bugar a câmera
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, lookAtPos)
+        end
+    end
+
+    -- SPEED Logic
+    if _SPEED and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = SPEED_BASE + (speedLevel * 10)
+    elseif not _SPEED and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+        LocalPlayer.Character.Humanoid.WalkSpeed = SPEED_BASE
+    end
 end)
 
--- Limpeza ao sair
-LocalPlayer.AncestryChanged:Connect(function()
-    pcall(function() EspFolder:Destroy() end)
-end)
+print("⚡ ZURION PRO v7 CARREGADO COM SUCESSO!")
