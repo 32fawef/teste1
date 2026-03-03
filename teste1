@@ -1,6 +1,6 @@
 -- ============================================================
--- ZURION PRO v6 MOBILE - AIMBOT CORRIGIDO
--- Funciona em celular - sem teclas
+-- ZURION PRO v7 MOBILE - AIMBOT CORRIGIDO (câmera livre)
+-- Aimbot OLHA para o inimigo mas não trava o movimento
 -- ============================================================
 
 local Players          = game:GetService("Players")
@@ -14,13 +14,12 @@ local SPEED_BASE = 16
 -- GUI
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionV6"
+ScreenGui.Name = "ZurionV7"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- BOTÃO FLUTUANTE PARA ABRIR
 local OpenBtn = Instance.new("TextButton")
 OpenBtn.Size = UDim2.new(0, 100, 0, 36)
 OpenBtn.Position = UDim2.new(0, 20, 0, 20)
@@ -34,7 +33,6 @@ OpenBtn.Visible = false
 OpenBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 
--- PAINEL PRINCIPAL
 local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 240, 0, 280)
 Main.Position = UDim2.new(0, 20, 0, 20)
@@ -45,7 +43,6 @@ Main.Draggable = true
 Main.Parent = ScreenGui
 Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
--- BARRA DE TÍTULO
 local TBar = Instance.new("Frame")
 TBar.Size = UDim2.new(1, 0, 0, 36)
 TBar.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
@@ -57,7 +54,7 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -44, 1, 0)
 TitleLbl.Position = UDim2.new(0, 10, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ ZURION PRO v6"
+TitleLbl.Text = "⚡ ZURION PRO v7"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 14
@@ -156,9 +153,10 @@ local function aplicarHighlight(character, id)
 end
 
 -- ============================================================
--- AIMBOT CORRIGIDO
--- Técnica: força CameraType.Scriptable a cada frame
--- Isso impede o jogo de resetar a câmera
+-- AIMBOT CORRIGIDO v7
+-- Técnica: mantém CameraType = Custom (câmera livre)
+-- Apenas ROTACIONA a câmera para olhar para o inimigo
+-- O jogador ainda pode se mover normalmente
 -- ============================================================
 local function getMelhorAlvo()
     local melhor, menorDist = nil, math.huge
@@ -229,10 +227,6 @@ end)
 AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
     setBtn(AimBtn, _AIM, "AIMBOT: ON ✔", "AIMBOT: OFF")
-    -- Quando desligar, volta câmera para modo normal
-    if not _AIM then
-        Camera.CameraType = Enum.CameraType.Custom
-    end
 end)
 
 SpeedBtn.MouseButton1Click:Connect(function()
@@ -277,18 +271,20 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- === AIMBOT CORRIGIDO ===
+    -- === AIMBOT v7 CORRIGIDO ===
+    -- Mantém CameraType = Custom (câmera livre, jogador pode se mover)
+    -- Apenas rotaciona a câmera para olhar para o inimigo mais próximo
     if _AIM then
-        -- FORÇA Scriptable a cada frame — impede o jogo de resetar
-        Camera.CameraType = Enum.CameraType.Scriptable
-
         local alvo = getMelhorAlvo()
         if alvo and alvo.Character then
             local hrp = alvo.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
-                -- Lerp suave: câmera vai gradualmente para o alvo
-                local targetCF = CFrame.new(Camera.CFrame.Position, hrp.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.3)
+                -- Pega a posição atual da câmera
+                local camPos = Camera.CFrame.Position
+                -- Cria uma CFrame que olha para o inimigo
+                local targetCF = CFrame.new(camPos, hrp.Position)
+                -- Aplica com Lerp suave (0.2 = suave, 1.0 = instantâneo)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.2)
             end
         end
     end
@@ -297,5 +293,4 @@ end)
 -- Limpeza ao sair
 LocalPlayer.AncestryChanged:Connect(function()
     pcall(function() EspFolder:Destroy() end)
-    pcall(function() Camera.CameraType = Enum.CameraType.Custom end)
 end)
