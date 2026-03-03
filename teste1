@@ -1,105 +1,94 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 local RunService = game:GetService("RunService")
 
--- 1. INTERFACE MELHORADA
+-- 1. INTERFACE DE CONTROLE
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "Auditoria_Final"
+ScreenGui.Name = "Painel_Zurion_Real"
 ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
 local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 180, 0, 110)
-Frame.Position = UDim2.new(0.05, 0, 0.4, 0)
-Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.Size = UDim2.new(0, 160, 0, 100)
+Frame.Position = UDim2.new(0, 50, 0, 50)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Frame.Active = true
 Frame.Draggable = true
 Frame.Parent = ScreenGui
 
-local t = Instance.new("TextLabel", Frame)
-t.Size = UDim2.new(1, 0, 0, 25)
-t.Text = "AUDITORIA V3"
-t.TextColor3 = Color3.new(1, 1, 1)
-t.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-
 local EspBtn = Instance.new("TextButton", Frame)
-EspBtn.Size = UDim2.new(0.9, 0, 0, 30)
-EspBtn.Position = UDim2.new(0.05, 0, 0.3, 0)
+EspBtn.Size = UDim2.new(1, 0, 0.5, 0)
 EspBtn.Text = "ESP: OFF"
-EspBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+EspBtn.TextColor3 = Color3.new(1,1,1)
 
 local AimBtn = Instance.new("TextButton", Frame)
-AimBtn.Size = UDim2.new(0.9, 0, 0, 30)
-AimBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
+AimBtn.Size = UDim2.new(1, 0, 0.5, 0)
+AimBtn.Position = UDim2.new(0, 0, 0.5, 0)
 AimBtn.Text = "AIMBOT: OFF"
-AimBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+AimBtn.TextColor3 = Color3.new(1,1,1)
 
--- VARIÁVEIS
+-- VARIÁVEIS DE ESTADO
 local _ESP = false
 local _AIM = false
 
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
     EspBtn.Text = _ESP and "ESP: ON" or "ESP: OFF"
-    EspBtn.BackgroundColor3 = _ESP and Color3.new(0, 0.6, 0) or Color3.new(0.6, 0, 0)
+    EspBtn.BackgroundColor3 = _ESP and Color3.new(0, 0.5, 0) or Color3.new(0.5, 0, 0)
 end)
 
 AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
     AimBtn.Text = _AIM and "AIMBOT: ON" or "AIMBOT: OFF"
-    AimBtn.BackgroundColor3 = _AIM and Color3.new(0, 0.6, 0) or Color3.new(0.6, 0, 0)
+    AimBtn.BackgroundColor3 = _AIM and Color3.new(0, 0.5, 0) or Color3.new(0.5, 0, 0)
 end)
 
--- FUNÇÃO PARA CRIAR CAIXA DE ESP (Sempre visível)
-local function CreateBox(player)
-    local b = Instance.new("BillboardGui")
-    b.Name = "ESP_Box"
-    b.AlwaysOnTop = true
-    b.Size = UDim2.new(4, 0, 5, 0)
-    b.Adornee = player.Character:WaitForChild("HumanoidRootPart")
-    b.Parent = player.Character
-
-    local frame = Instance.new("Frame", b)
-    frame.Size = UDim2.new(1, 0, 1, 0)
-    frame.BackgroundTransparency = 1
-    local line = Instance.new("UIStroke", frame)
-    line.Thickness = 2
-    line.Color = Color3.new(1, 0, 0) -- Cor da Caixa (Vermelha)
-end
-
--- LOOP PRINCIPAL
+-- LÓGICA DE EXECUÇÃO
 RunService.RenderStepped:Connect(function()
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            -- Controle do ESP
-            local box = p.Character:FindFirstChild("ESP_Box")
-            if _ESP then
-                if not box then CreateBox(p) end
+        if p ~= LocalPlayer and p.Character then
+            -- ESP: USANDO SELECTIONBOX (ATRAVESSA TUDO)
+            local box = p.Character:FindFirstChild("Auditoria_Box")
+            if _ESP and p.Character:FindFirstChild("HumanoidRootPart") then
+                if not box then
+                    box = Instance.new("SelectionBox")
+                    box.Name = "Auditoria_Box"
+                    box.Adornee = p.Character
+                    box.Color3 = Color3.new(1, 0, 0)
+                    box.LineAlpha = 0.5 -- Transparência da linha
+                    box.AlwaysOnTop = true -- GARANTE VER ATRAVÉS DA PAREDE
+                    box.Parent = p.Character
+                end
             else
                 if box then box:Destroy() end
             end
         end
     end
 
-    -- Lógica do Aimbot (Mais forte)
+    -- AIMBOT: TRAVA DE MIRA REAL
     if _AIM then
         local target = nil
-        local dist = 500 -- Aumentei o alcance
+        local dist = 1000
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
-                local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
-                if onScreen then
-                    local mDist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                    if mDist < dist then
-                        dist = mDist
-                        target = p
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+                if p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                    local pos, screen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+                    if screen then
+                        local mDist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                        if mDist < dist then
+                            dist = mDist
+                            target = p
+                        end
                     end
                 end
             end
         end
         if target then
-            -- Trava a câmera na cabeça usando lookAt (Mais preciso)
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Character.Head.Position)
+            -- MODO AGRESSIVO: Força a CFrame da Câmera a olhar para o Alvo
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
         end
     end
 end)
