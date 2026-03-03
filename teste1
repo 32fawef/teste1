@@ -1,83 +1,96 @@
+-- Limpar GUIs antigas para não acumular na tela
+for _, v in pairs(game.CoreGui:GetChildren()) do
+    if v.Name == "PainelAuditoria" then v:Destroy() end
+end
+
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
+local UIListLayout = Instance.new("UIListLayout")
 local Title = Instance.new("TextLabel")
 local ESPBtn = Instance.new("TextButton")
 local AimbotBtn = Instance.new("TextButton")
 
--- Configurando a Interface
+-- 1. CONFIGURAÇÃO DA JANELA PRINCIPAL (PEQUENA)
+ScreenGui.Name = "PainelAuditoria"
 ScreenGui.Parent = game.CoreGui
-MainFrame.Name = "AuditoriaPanel"
+
 MainFrame.Parent = ScreenGui
-MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-MainFrame.Position = UDim2.new(0.5, -100, 0.5, -75)
-MainFrame.Size = UDim2.new(0, 200, 150)
+MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+MainFrame.BorderSizePixel = 2
+MainFrame.Position = UDim2.new(0, 50, 0, 50) -- Fica no canto superior esquerdo
+MainFrame.Size = UDim2.new(0, 150, 0, 120)  -- Tamanho fixo e pequeno
 MainFrame.Active = true
-MainFrame.Draggable = true -- Você pode arrastar o menu
+MainFrame.Draggable = true -- Você pode arrastar pelo mapa
 
+UIListLayout.Parent = MainFrame
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.Padding = UDim.new(0, 5)
+
+-- 2. TÍTULO
 Title.Parent = MainFrame
-Title.Text = "AUDITORIA AZURION"
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Title.Size = UDim2.new(1, 0, 0, 25)
+Title.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+Title.Text = "MENU TESTE"
 Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextSize = 14
 
+-- 3. BOTÃO ESP
 ESPBtn.Parent = MainFrame
-ESPBtn.Text = "Ligar ESP"
-ESPBtn.Position = UDim2.new(0.1, 0, 0.3, 0)
-ESPBtn.Size = UDim2.new(0.8, 0, 0, 30)
-ESPBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+ESPBtn.Size = UDim2.new(0.9, 0, 0, 35)
+ESPBtn.Text = "ESP: OFF"
+ESPBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+ESPBtn.TextColor3 = Color3.new(1, 1, 1)
 
+-- 4. BOTÃO AIMBOT
 AimbotBtn.Parent = MainFrame
-AimbotBtn.Text = "Ligar Aimbot"
-AimbotBtn.Position = UDim2.new(0.1, 0, 0.6, 0)
-AimbotBtn.Size = UDim2.new(0.8, 0, 0, 30)
-AimbotBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+AimbotBtn.Size = UDim2.new(0.9, 0, 0, 35)
+AimbotBtn.Text = "AIMBOT: OFF"
+AimbotBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+AimbotBtn.TextColor3 = Color3.new(1, 1, 1)
 
--- Variáveis de Controle
+-- VARIÁVEIS DE ESTADO
 local _ESP = false
 local _Aimbot = false
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- FUNÇÃO ESP
-local function updateESP()
+-- LÓGICA DOS BOTÕES
+ESPBtn.MouseButton1Click:Connect(function()
+    _ESP = not _ESP
+    ESPBtn.Text = _ESP and "ESP: ON" or "ESP: OFF"
+    ESPBtn.BackgroundColor3 = _ESP and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(180, 0, 0)
+end)
+
+AimbotBtn.MouseButton1Click:Connect(function()
+    _Aimbot = not _Aimbot
+    AimbotBtn.Text = _Aimbot and "AIMBOT: ON" or "AIMBOT: OFF"
+    AimbotBtn.BackgroundColor3 = _Aimbot and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(180, 0, 0)
+end)
+
+-- LOOP DE FUNCIONAMENTO (ESP + AIMBOT)
+game:GetService("RunService").RenderStepped:Connect(function()
+    -- Lógica do ESP (Team Check Incluso)
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
-            local highlight = p.Character:FindFirstChild("Highlight")
-            if _ESP then
+            local highlight = p.Character:FindFirstChild("Auditoria_Highlight")
+            if _ESP and p.Team ~= LocalPlayer.Team then
                 if not highlight then
-                    highlight = Instance.new("Highlight", p.Character)
+                    highlight = Instance.new("Highlight")
+                    highlight.Name = "Auditoria_Highlight"
+                    highlight.Parent = p.Character
                     highlight.FillColor = Color3.new(1, 0, 0)
                 end
-                -- Team Check no ESP
-                highlight.Enabled = (p.Team ~= LocalPlayer.Team)
             else
                 if highlight then highlight:Destroy() end
             end
         end
     end
-end
 
--- BOTÕES (LIGAR/DESLIGAR)
-ESPBtn.MouseButton1Click:Connect(function()
-    _ESP = not _ESP
-    ESPBtn.Text = _ESP and "Desligar ESP" or "Ligar ESP"
-    ESPBtn.BackgroundColor3 = _ESP and Color3.new(0, 0.6, 0) or Color3.new(0.8, 0, 0)
-end)
-
-AimbotBtn.MouseButton1Click:Connect(function()
-    _Aimbot = not _Aimbot
-    AimbotBtn.Text = _Aimbot and "Desligar Aimbot" or "Ligar Aimbot"
-    AimbotBtn.BackgroundColor3 = _Aimbot and Color3.new(0, 0.6, 0) or Color3.new(0.8, 0, 0)
-end)
-
--- LOOP PRINCIPAL
-game:GetService("RunService").RenderStepped:Connect(function()
-    updateESP()
-    
+    -- Lógica do Aimbot (Team Check Incluso)
     if _Aimbot then
-        local closest = nil
-        local dist = 150 -- FOV
+        local target = nil
+        local dist = 200 -- Alcance da trava
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Team ~= LocalPlayer.Team then
                 local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
@@ -85,13 +98,13 @@ game:GetService("RunService").RenderStepped:Connect(function()
                     local mDist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
                     if mDist < dist then
                         dist = mDist
-                        closest = p
+                        target = p
                     end
                 end
             end
         end
-        if closest then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, closest.Character.Head.Position)
+        if target then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
         end
     end
 end)
