@@ -1,14 +1,27 @@
--- ESP Script com Interface - Todos os Humanoids ficam vermelhos
+-- ============================================================
+-- ESP + AIMBOT SCRIPT - VERSÃO CORRIGIDA E PODEROSA
+-- ============================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
--- =============================================
+-- ============================================================
+-- CONFIGURAÇÕES DO AIMBOT
+-- ============================================================
+local AIM_FOV = 250          -- Raio do FOV em pixels (maior = pega mais longe)
+local AIM_SMOOTH = 0.25      -- Suavização: 0.05 = muito suave | 1 = instantâneo
+local AIM_BONE = "Head"      -- Osso alvo: "Head" ou "HumanoidRootPart"
+local AIM_KEY = Enum.KeyCode.Q -- Tecla para ativar aimbot (segure)
+
+-- ============================================================
 -- INTERFACE GRÁFICA
--- =============================================
+-- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ESP_GUI"
+ScreenGui.Name = "ZurionV2"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999
 
 local ok = pcall(function()
     ScreenGui.Parent = game:GetService("CoreGui")
@@ -19,161 +32,246 @@ end
 
 -- Janela principal
 local MainFrame = Instance.new("Frame")
-MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 180, 0, 90)
+MainFrame.Size = UDim2.new(0, 200, 0, 130)
 MainFrame.Position = UDim2.new(0, 20, 0, 20)
-MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+
 -- Barra de título
 local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 28)
-TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TitleBar.Size = UDim2.new(1, 0, 0, 30)
+TitleBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
 TitleBar.BorderSizePixel = 0
 TitleBar.Parent = MainFrame
+Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 8)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -30, 1, 0)
+Title.Size = UDim2.new(1, -35, 1, 0)
+Title.Position = UDim2.new(0, 8, 0, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "  🔴 ESP"
+Title.Text = "⚡ ZURION V2"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 13
 Title.Parent = TitleBar
 
--- Botão minimizar/maximizar
 local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 28, 1, 0)
-MinBtn.Position = UDim2.new(1, -28, 0, 0)
-MinBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+MinBtn.Size = UDim2.new(0, 28, 0, 22)
+MinBtn.Position = UDim2.new(1, -32, 0, 4)
+MinBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 MinBtn.BorderSizePixel = 0
 MinBtn.Text = "—"
 MinBtn.TextColor3 = Color3.new(1, 1, 1)
 MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 14
+MinBtn.TextSize = 13
 MinBtn.Parent = TitleBar
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
 
--- Conteúdo (esconde ao minimizar)
 local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, 0, 1, -28)
-Content.Position = UDim2.new(0, 0, 0, 28)
+Content.Size = UDim2.new(1, 0, 1, -30)
+Content.Position = UDim2.new(0, 0, 0, 30)
 Content.BackgroundTransparency = 1
 Content.Parent = MainFrame
 
--- Botão ESP ON/OFF
+-- Botão ESP
 local EspBtn = Instance.new("TextButton")
-EspBtn.Size = UDim2.new(1, -16, 0, 36)
-EspBtn.Position = UDim2.new(0, 8, 0, 10)
-EspBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+EspBtn.Size = UDim2.new(1, -16, 0, 38)
+EspBtn.Position = UDim2.new(0, 8, 0, 8)
+EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
 EspBtn.BorderSizePixel = 0
-EspBtn.Text = "ESP: DESATIVADO"
+EspBtn.Text = "ESP: OFF"
 EspBtn.TextColor3 = Color3.new(1, 1, 1)
 EspBtn.Font = Enum.Font.GothamBold
 EspBtn.TextSize = 13
 EspBtn.Parent = Content
+Instance.new("UICorner", EspBtn).CornerRadius = UDim.new(0, 6)
 
--- Cantos arredondados no botão
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 6)
-Corner.Parent = EspBtn
+-- Botão AIMBOT
+local AimBtn = Instance.new("TextButton")
+AimBtn.Size = UDim2.new(1, -16, 0, 38)
+AimBtn.Position = UDim2.new(0, 8, 0, 54)
+AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+AimBtn.BorderSizePixel = 0
+AimBtn.Text = "AIMBOT: OFF  [Q]"
+AimBtn.TextColor3 = Color3.new(1, 1, 1)
+AimBtn.Font = Enum.Font.GothamBold
+AimBtn.TextSize = 13
+AimBtn.Parent = Content
+Instance.new("UICorner", AimBtn).CornerRadius = UDim.new(0, 6)
 
--- =============================================
--- LÓGICA DO ESP
--- =============================================
+-- ============================================================
+-- ESTADO
+-- ============================================================
 local _ESP = false
+local _AIM = false
+local minimizado = false
+
+-- ============================================================
+-- ESP - USA HIGHLIGHT (FUNCIONA ATRAVÉS DA PAREDE SEMPRE)
+-- ============================================================
 local EspFolder = Instance.new("Folder")
-EspFolder.Name = "ESP_Boxes"
+EspFolder.Name = "ESP_Highlights"
 EspFolder.Parent = workspace
 
 local function limparESP()
-    for _, v in pairs(EspFolder:GetChildren()) do
-        v:Destroy()
-    end
+    for _, v in pairs(EspFolder:GetChildren()) do v:Destroy() end
 end
 
-local function criarBox(character, name)
-    if EspFolder:FindFirstChild(name) then return end
-    local box = Instance.new("SelectionBox")
-    box.Name = name
-    box.Adornee = character
-    box.Color3 = Color3.new(1, 0, 0)       -- Vermelho
-    box.SurfaceColor3 = Color3.new(1, 0, 0)
-    box.SurfaceTransparency = 0.7
-    box.LineThickness = 0.05
-    box.AlwaysOnTop = true                  -- Vê através das paredes
-    box.Parent = EspFolder
+local function aplicarHighlight(character, id)
+    if EspFolder:FindFirstChild(id) then return end
+
+    -- HIGHLIGHT: método mais confiável para ver através de paredes
+    local hl = Instance.new("Highlight")
+    hl.Name = id
+    hl.Adornee = character
+    hl.FillColor = Color3.new(1, 0, 0)       -- Vermelho por dentro
+    hl.OutlineColor = Color3.new(1, 1, 1)    -- Branco por fora
+    hl.FillTransparency = 0.5                -- Semi-transparente
+    hl.OutlineTransparency = 0               -- Contorno sólido
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- ATRAVESSA PAREDE
+    hl.Parent = EspFolder
 end
 
--- Botão toggle ESP
-EspBtn.MouseButton1Click:Connect(function()
-    _ESP = not _ESP
-    if _ESP then
-        EspBtn.Text = "ESP: ATIVADO ✔"
-        EspBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 0)
-    else
-        EspBtn.Text = "ESP: DESATIVADO"
-        EspBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
-        limparESP()
-    end
-end)
+-- ============================================================
+-- AIMBOT PODEROSO
+-- ============================================================
+local function getMelhorAlvo()
+    local melhor = nil
+    local menorDist = AIM_FOV
+    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
--- Minimizar / Maximizar
-local minimizado = false
-MinBtn.MouseButton1Click:Connect(function()
-    minimizado = not minimizado
-    if minimizado then
-        Content.Visible = false
-        MainFrame.Size = UDim2.new(0, 180, 0, 28)
-        MinBtn.Text = "+"
-    else
-        Content.Visible = true
-        MainFrame.Size = UDim2.new(0, 180, 0, 90)
-        MinBtn.Text = "—"
-    end
-end)
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local bone = p.Character:FindFirstChild(AIM_BONE)
+            local hum = p.Character:FindFirstChild("Humanoid")
 
--- =============================================
--- LOOP PRINCIPAL - Detecta TODOS os Humanoids
--- =============================================
-RunService.RenderStepped:Connect(function()
-    if not _ESP then return end
-
-    -- Varre TODOS os modelos no workspace que tenham Humanoid
-    for _, obj in pairs(workspace:GetDescendants()) do
-        if obj:IsA("Humanoid") and obj.Health > 0 then
-            local character = obj.Parent
-            if character and character ~= LocalPlayer.Character then
-                local root = character:FindFirstChild("HumanoidRootPart")
-                    or character:FindFirstChildWhichIsA("BasePart")
-
-                if root then
-                    local boxName = "ESP_" .. character.Name .. "_" .. tostring(character:GetDebugId())
-                    local existing = EspFolder:FindFirstChild(boxName)
-
-                    if not existing then
-                        criarBox(character, boxName)
-                    else
-                        -- Atualiza adornee caso tenha mudado
-                        existing.Adornee = character
+            if bone and hum and hum.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - centro).Magnitude
+                    if dist < menorDist then
+                        menorDist = dist
+                        melhor = p
                     end
                 end
             end
         end
     end
+    return melhor
+end
 
-    -- Remove boxes de personagens que morreram ou sumiram
-    for _, box in pairs(EspFolder:GetChildren()) do
-        if not box.Adornee or not box.Adornee.Parent then
-            box:Destroy()
+-- ============================================================
+-- BOTÕES
+-- ============================================================
+EspBtn.MouseButton1Click:Connect(function()
+    _ESP = not _ESP
+    if _ESP then
+        EspBtn.Text = "ESP: ON ✔"
+        EspBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 0)
+    else
+        EspBtn.Text = "ESP: OFF"
+        EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+        limparESP()
+    end
+end)
+
+AimBtn.MouseButton1Click:Connect(function()
+    _AIM = not _AIM
+    if _AIM then
+        AimBtn.Text = "AIMBOT: ON ✔  [Q]"
+        AimBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 0)
+    else
+        AimBtn.Text = "AIMBOT: OFF  [Q]"
+        AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+        if Camera.CameraType == Enum.CameraType.Scriptable then
+            Camera.CameraType = Enum.CameraType.Custom
         end
     end
 end)
 
--- Limpeza ao sair
+MinBtn.MouseButton1Click:Connect(function()
+    minimizado = not minimizado
+    if minimizado then
+        Content.Visible = false
+        MainFrame.Size = UDim2.new(0, 200, 0, 30)
+        MinBtn.Text = "+"
+    else
+        Content.Visible = true
+        MainFrame.Size = UDim2.new(0, 200, 0, 130)
+        MinBtn.Text = "—"
+    end
+end)
+
+-- ============================================================
+-- LOOP PRINCIPAL
+-- ============================================================
+RunService.RenderStepped:Connect(function()
+
+    -- === ESP ===
+    if _ESP then
+        -- Jogadores
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local hum = p.Character:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    local id = "HL_Player_" .. p.UserId
+                    local ex = EspFolder:FindFirstChild(id)
+                    if not ex then
+                        aplicarHighlight(p.Character, id)
+                    else
+                        ex.Adornee = p.Character
+                    end
+                end
+            end
+        end
+
+        -- NPCs / Mobs (qualquer Humanoid no workspace)
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("Humanoid") and obj.Health > 0 then
+                local char = obj.Parent
+                if char and char ~= LocalPlayer.Character then
+                    local id = "HL_NPC_" .. tostring(char:GetDebugId())
+                    if not EspFolder:FindFirstChild(id) then
+                        aplicarHighlight(char, id)
+                    end
+                end
+            end
+        end
+
+        -- Remove highlights de alvos mortos/sumidos
+        for _, hl in pairs(EspFolder:GetChildren()) do
+            if not hl.Adornee or not hl.Adornee.Parent then
+                hl:Destroy()
+            end
+        end
+    end
+
+    -- === AIMBOT ===
+    if _AIM and UserInputService:IsKeyDown(AIM_KEY) then
+        local alvo = getMelhorAlvo()
+        if alvo and alvo.Character and alvo.Character:FindFirstChild(AIM_BONE) then
+            local targetPos = alvo.Character[AIM_BONE].Position
+            Camera.CameraType = Enum.CameraType.Scriptable
+
+            -- Suavização: interpola entre CFrame atual e o alvo
+            local currentCF = Camera.CFrame
+            local targetCF = CFrame.new(currentCF.Position, targetPos)
+            Camera.CFrame = currentCF:Lerp(targetCF, AIM_SMOOTH)
+        end
+    elseif _AIM and not UserInputService:IsKeyDown(AIM_KEY) then
+        if Camera.CameraType == Enum.CameraType.Scriptable then
+            Camera.CameraType = Enum.CameraType.Custom
+        end
+    end
+end)
+
+-- Limpeza
 LocalPlayer.AncestryChanged:Connect(function()
     pcall(function() EspFolder:Destroy() end)
 end)
