@@ -3,35 +3,33 @@ local LocalPlayer = Players.LocalPlayer
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
--- 1. SISTEMA DE SEGURANÇA PARA A INTERFACE (Evita tela gigante)
+-- 1. SISTEMA DE SEGURANÇA DA INTERFACE
 local guiName = "AuditoriaGUI_Segura"
 local targetParent
 
--- Tenta colocar no CoreGui (escondido do jogo). Se o executor bloquear, coloca no PlayerGui.
 local sucesso = pcall(function() targetParent = game:GetService("CoreGui") end)
 if not sucesso or not targetParent then
     targetParent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
--- Limpa versões anteriores para não bugar
 for _, v in pairs(targetParent:GetChildren()) do
     if v.Name == guiName then v:Destroy() end
 end
 
--- 2. CRIANDO A INTERFACE COM TAMANHOS EXATOS (Em Pixels)
+-- 2. CRIANDO A INTERFACE FIXA
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = guiName
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = targetParent
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 130) -- Tamanho exato: 200 de largura, 130 de altura
+MainFrame.Size = UDim2.new(0, 200, 0, 130)
 MainFrame.Position = UDim2.new(0, 50, 0, 50)
 MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
 MainFrame.BorderSizePixel = 2
 MainFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
 MainFrame.Active = true
-MainFrame.Draggable = true -- Você pode arrastar pela tela
+MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
 local Title = Instance.new("TextLabel")
@@ -45,7 +43,7 @@ Title.Parent = MainFrame
 
 local ESPBtn = Instance.new("TextButton")
 ESPBtn.Size = UDim2.new(0, 180, 0, 35)
-ESPBtn.Position = UDim2.new(0, 10, 0, 40) -- Posição exata do botão ESP
+ESPBtn.Position = UDim2.new(0, 10, 0, 40)
 ESPBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 ESPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 ESPBtn.Font = Enum.Font.Code
@@ -55,7 +53,7 @@ ESPBtn.Parent = MainFrame
 
 local AimbotBtn = Instance.new("TextButton")
 AimbotBtn.Size = UDim2.new(0, 180, 0, 35)
-AimbotBtn.Position = UDim2.new(0, 10, 0, 85) -- Posição exata do botão Aimbot
+AimbotBtn.Position = UDim2.new(0, 10, 0, 85)
 AimbotBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 AimbotBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 AimbotBtn.Font = Enum.Font.Code
@@ -67,16 +65,16 @@ AimbotBtn.Parent = MainFrame
 local espAtivo = false
 local aimbotAtivo = false
 
--- 4. FUNÇÕES DE LIGAR/DESLIGAR
+-- 4. BOTÕES
 ESPBtn.MouseButton1Click:Connect(function()
     espAtivo = not espAtivo
     if espAtivo then
         ESPBtn.Text = "ESP: LIGADO"
-        ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0) -- Fica verde
+        ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
     else
         ESPBtn.Text = "ESP: DESLIGADO"
-        ESPBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0) -- Fica vermelho
-        -- Apaga o ESP imediatamente ao desligar
+        ESPBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
+        -- Remove o ESP de todos ao desligar
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("AuditoriaESP") then
                 p.Character.AuditoriaESP:Destroy()
@@ -96,52 +94,51 @@ AimbotBtn.MouseButton1Click:Connect(function()
     end
 end)
 
--- 5. LOOP DE EXECUÇÃO (O motor do script)
+-- 5. LOOP DE EXECUÇÃO
 RunService.RenderStepped:Connect(function()
-    -- Lógica do ESP
+    
+    -- Lógica do ESP (Agora vê através das paredes)
     if espAtivo then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                if p.Team ~= LocalPlayer.Team then -- Team Check
-                    local hl = p.Character:FindFirstChild("AuditoriaESP")
-                    if not hl then
-                        hl = Instance.new("Highlight")
-                        hl.Name = "AuditoriaESP"
-                        hl.FillColor = Color3.fromRGB(255, 0, 0)
-                        hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                        hl.Parent = p.Character
-                    end
+                local hl = p.Character:FindFirstChild("AuditoriaESP")
+                if not hl then
+                    hl = Instance.new("Highlight")
+                    hl.Name = "AuditoriaESP"
+                    hl.FillColor = Color3.fromRGB(255, 0, 0)
+                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- ESSA LINHA FAZ VER ATRAVÉS DA PAREDE
+                    hl.Parent = p.Character
                 end
             end
         end
     end
 
-    -- Lógica do Aimbot
+    -- Lógica do Aimbot (Agora foca em qualquer um)
     if aimbotAtivo then
         local alvo = nil
-        local menorDistancia = 200 -- Alcance da trava de mira na tela
+        local menorDistancia = math.huge -- Procura o alvo em qualquer distância na tela
         
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-                if p.Team ~= LocalPlayer.Team then -- Team Check
-                    local cabeca = p.Character.Head
-                    local posNaTela, taNaTela = Camera:WorldToViewportPoint(cabeca.Position)
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
+                local cabeca = p.Character.Head
+                local posNaTela, taNaTela = Camera:WorldToViewportPoint(cabeca.Position)
+                
+                if taNaTela then
+                    local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                    local dist = (Vector2.new(posNaTela.X, posNaTela.Y) - centroTela).Magnitude
                     
-                    if taNaTela then
-                        local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                        local dist = (Vector2.new(posNaTela.X, posNaTela.Y) - centroTela).Magnitude
-                        
-                        if dist < menorDistancia then
-                            menorDistancia = dist
-                            alvo = p
-                        end
+                    if dist < menorDistancia then
+                        menorDistancia = dist
+                        alvo = p
                     end
                 end
             end
         end
         
+        -- Move a câmera para a cabeça do alvo mais próximo do centro da tela
         if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.Character.Head.Position)
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, alvo.Character.Head.Position)
         end
     end
 end)
