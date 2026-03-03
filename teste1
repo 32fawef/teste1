@@ -1,5 +1,5 @@
 -- ============================================================
--- ZURION V2 - ESP + AIMBOT FORTE (SNAP INSTANTÂNEO)
+-- ZURION V3 - ESP + AIMBOT REAL + SPEED
 -- ============================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
@@ -7,21 +7,20 @@ local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
-local AIM_FOV = 500   -- Raio de detecção em pixels (maior = pega mais longe)
-local AIM_KEY = Enum.KeyCode.Q  -- Segure Q para ativar
+local AIM_KEY = Enum.KeyCode.Q  -- Segure Q para ativar aimbot
 
 -- ============================================================
 -- GUI
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionV2"
+ScreenGui.Name = "ZurionV3"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 130)
+MainFrame.Size = UDim2.new(0, 220, 0, 220)
 MainFrame.Position = UDim2.new(0, 20, 0, 20)
 MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
 MainFrame.BorderSizePixel = 0
@@ -38,27 +37,14 @@ TitleBar.Parent = MainFrame
 Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 8)
 
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -35, 1, 0)
-Title.Position = UDim2.new(0, 8, 0, 0)
+Title.Size = UDim2.new(1, 0, 1, 0)
 Title.BackgroundTransparency = 1
-Title.Text = "⚡ ZURION V2"
+Title.Text = "⚡ ZURION V3"
 Title.TextColor3 = Color3.new(1, 1, 1)
-Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.TextXAlignment = Enum.TextXAlignment.Center
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 13
+Title.TextSize = 14
 Title.Parent = TitleBar
-
-local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 28, 0, 22)
-MinBtn.Position = UDim2.new(1, -32, 0, 4)
-MinBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-MinBtn.BorderSizePixel = 0
-MinBtn.Text = "—"
-MinBtn.TextColor3 = Color3.new(1, 1, 1)
-MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 13
-MinBtn.Parent = TitleBar
-Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
 
 local Content = Instance.new("Frame")
 Content.Size = UDim2.new(1, 0, 1, -30)
@@ -66,8 +52,9 @@ Content.Position = UDim2.new(0, 0, 0, 30)
 Content.BackgroundTransparency = 1
 Content.Parent = MainFrame
 
+-- Botão ESP
 local EspBtn = Instance.new("TextButton")
-EspBtn.Size = UDim2.new(1, -16, 0, 38)
+EspBtn.Size = UDim2.new(1, -16, 0, 36)
 EspBtn.Position = UDim2.new(0, 8, 0, 8)
 EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
 EspBtn.BorderSizePixel = 0
@@ -78,9 +65,10 @@ EspBtn.TextSize = 13
 EspBtn.Parent = Content
 Instance.new("UICorner", EspBtn).CornerRadius = UDim.new(0, 6)
 
+-- Botão AIMBOT
 local AimBtn = Instance.new("TextButton")
-AimBtn.Size = UDim2.new(1, -16, 0, 38)
-AimBtn.Position = UDim2.new(0, 8, 0, 54)
+AimBtn.Size = UDim2.new(1, -16, 0, 36)
+AimBtn.Position = UDim2.new(0, 8, 0, 52)
 AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
 AimBtn.BorderSizePixel = 0
 AimBtn.Text = "AIMBOT: OFF  [Q]"
@@ -90,15 +78,66 @@ AimBtn.TextSize = 13
 AimBtn.Parent = Content
 Instance.new("UICorner", AimBtn).CornerRadius = UDim.new(0, 6)
 
+-- Botão SPEED
+local SpeedBtn = Instance.new("TextButton")
+SpeedBtn.Size = UDim2.new(1, -16, 0, 36)
+SpeedBtn.Position = UDim2.new(0, 8, 0, 96)
+SpeedBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+SpeedBtn.BorderSizePixel = 0
+SpeedBtn.Text = "SPEED: OFF"
+SpeedBtn.TextColor3 = Color3.new(1, 1, 1)
+SpeedBtn.Font = Enum.Font.GothamBold
+SpeedBtn.TextSize = 13
+SpeedBtn.Parent = Content
+Instance.new("UICorner", SpeedBtn).CornerRadius = UDim.new(0, 6)
+
+-- Label do nível de speed
+local SpeedLabel = Instance.new("TextLabel")
+SpeedLabel.Size = UDim2.new(1, -16, 0, 20)
+SpeedLabel.Position = UDim2.new(0, 8, 0, 138)
+SpeedLabel.BackgroundTransparency = 1
+SpeedLabel.Text = "Velocidade: 5"
+SpeedLabel.TextColor3 = Color3.new(1, 1, 1)
+SpeedLabel.Font = Enum.Font.Gotham
+SpeedLabel.TextSize = 12
+SpeedLabel.Parent = Content
+
+-- Botões - e + para speed
+local MinusBtn = Instance.new("TextButton")
+MinusBtn.Size = UDim2.new(0, 50, 0, 28)
+MinusBtn.Position = UDim2.new(0, 8, 0, 162)
+MinusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+MinusBtn.BorderSizePixel = 0
+MinusBtn.Text = "  -  "
+MinusBtn.TextColor3 = Color3.new(1, 1, 1)
+MinusBtn.Font = Enum.Font.GothamBold
+MinusBtn.TextSize = 16
+MinusBtn.Parent = Content
+Instance.new("UICorner", MinusBtn).CornerRadius = UDim.new(0, 6)
+
+local PlusBtn = Instance.new("TextButton")
+PlusBtn.Size = UDim2.new(0, 50, 0, 28)
+PlusBtn.Position = UDim2.new(1, -58, 0, 162)
+PlusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+PlusBtn.BorderSizePixel = 0
+PlusBtn.Text = "  +  "
+PlusBtn.TextColor3 = Color3.new(1, 1, 1)
+PlusBtn.Font = Enum.Font.GothamBold
+PlusBtn.TextSize = 16
+PlusBtn.Parent = Content
+Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 6)
+
 -- ============================================================
 -- ESTADO
 -- ============================================================
-local _ESP = false
-local _AIM = false
-local minimizado = false
+local _ESP   = false
+local _AIM   = false
+local _SPEED = false
+local speedLevel = 5  -- 1 a 10
+local speedBase = 16  -- velocidade padrão do Roblox
 
 -- ============================================================
--- ESP COM HIGHLIGHT (ATRAVESSA PAREDE)
+-- ESP COM HIGHLIGHT
 -- ============================================================
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "ESP_Highlights"
@@ -125,7 +164,7 @@ end
 -- AIMBOT: ENCONTRA ALVO MAIS PRÓXIMO DO CENTRO
 -- ============================================================
 local function getMelhorAlvo()
-    local melhor, menorDist = nil, AIM_FOV
+    local melhor, menorDist = nil, math.huge
     local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
@@ -144,6 +183,26 @@ local function getMelhorAlvo()
 end
 
 -- ============================================================
+-- CONTROLE DO CAMERATYPE (só muda quando estado muda)
+-- ============================================================
+local aiming = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == AIM_KEY and _AIM then
+        aiming = true
+        Camera.CameraType = Enum.CameraType.Scriptable
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.KeyCode == AIM_KEY then
+        aiming = false
+        Camera.CameraType = Enum.CameraType.Custom
+    end
+end)
+
+-- ============================================================
 -- BOTÕES
 -- ============================================================
 EspBtn.MouseButton1Click:Connect(function()
@@ -157,13 +216,53 @@ AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
     AimBtn.Text = _AIM and "AIMBOT: ON ✔  [Q]" or "AIMBOT: OFF  [Q]"
     AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    if not _AIM then
+        aiming = false
+        Camera.CameraType = Enum.CameraType.Custom
+    end
 end)
 
-MinBtn.MouseButton1Click:Connect(function()
-    minimizado = not minimizado
-    Content.Visible = not minimizado
-    MainFrame.Size = minimizado and UDim2.new(0, 200, 0, 30) or UDim2.new(0, 200, 0, 130)
-    MinBtn.Text = minimizado and "+" or "—"
+SpeedBtn.MouseButton1Click:Connect(function()
+    _SPEED = not _SPEED
+    SpeedBtn.Text = _SPEED and "SPEED: ON ✔" or "SPEED: OFF"
+    SpeedBtn.BackgroundColor3 = _SPEED and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChild("Humanoid")
+        if hum then
+            hum.WalkSpeed = _SPEED and (speedBase + speedLevel * 14) or speedBase
+        end
+    end
+end)
+
+local function atualizarSpeed()
+    SpeedLabel.Text = "Velocidade: " .. speedLevel
+    if _SPEED then
+        local char = LocalPlayer.Character
+        if char then
+            local hum = char:FindFirstChild("Humanoid")
+            if hum then hum.WalkSpeed = speedBase + speedLevel * 14 end
+        end
+    end
+end
+
+MinusBtn.MouseButton1Click:Connect(function()
+    speedLevel = math.max(1, speedLevel - 1)
+    atualizarSpeed()
+end)
+
+PlusBtn.MouseButton1Click:Connect(function()
+    speedLevel = math.min(10, speedLevel + 1)
+    atualizarSpeed()
+end)
+
+-- Restaura speed ao respawnar
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if _SPEED then
+        task.wait(0.5)
+        local hum = char:WaitForChild("Humanoid")
+        hum.WalkSpeed = speedBase + speedLevel * 14
+    end
 end)
 
 -- ============================================================
@@ -189,19 +288,13 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- === AIMBOT FORTE: SNAP INSTANTÂNEO NA CABEÇA ===
-    if _AIM and UserInputService:IsKeyDown(AIM_KEY) then
+    -- === AIMBOT: SNAP DIRETO NA CABEÇA ===
+    if aiming and _AIM then
         local alvo = getMelhorAlvo()
         if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
             local headPos = alvo.Character.Head.Position
-            local camPos  = Camera.CFrame.Position
-
-            -- Seta Scriptable, aplica CFrame, restaura Custom — tudo no mesmo frame
-            Camera.CameraType = Enum.CameraType.Scriptable
-            Camera.CFrame = CFrame.new(camPos, headPos)
-            task.defer(function()
-                Camera.CameraType = Enum.CameraType.Custom
-            end)
+            -- Mantém posição da câmera, só muda para onde ela olha
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, headPos)
         end
     end
 end)
