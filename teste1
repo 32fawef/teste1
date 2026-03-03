@@ -1,16 +1,14 @@
 -- ============================================================
--- ZURION V2 - ESP + AIMBOT CORRIGIDO (SEM BUG DE MIRA)
+-- ZURION V2 - ESP + AIMBOT FORTE (SNAP INSTANTÂNEO)
 -- ============================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local VIM = game:GetService("VirtualInputManager")
 
-local AIM_FOV    = 300   -- Raio em pixels
-local AIM_SPEED  = 8     -- Velocidade: maior = mais rápido (1-20)
-local AIM_KEY    = Enum.KeyCode.Q
+local AIM_FOV = 500   -- Raio de detecção em pixels (maior = pega mais longe)
+local AIM_KEY = Enum.KeyCode.Q  -- Segure Q para ativar
 
 -- ============================================================
 -- GUI
@@ -191,31 +189,19 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- === AIMBOT ===
-    -- Usa VirtualInputManager para mover o mouse em direção ao alvo
-    -- Isso NÃO trava a câmera nem buga a mira do jogador
+    -- === AIMBOT FORTE: SNAP INSTANTÂNEO NA CABEÇA ===
     if _AIM and UserInputService:IsKeyDown(AIM_KEY) then
         local alvo = getMelhorAlvo()
         if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
-            local head = alvo.Character.Head
-            local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
-            if onScreen then
-                local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                local alvoPos = Vector2.new(sp.X, sp.Y)
-                local delta = alvoPos - centro
+            local headPos = alvo.Character.Head.Position
+            local camPos  = Camera.CFrame.Position
 
-                -- Move o mouse em direção ao alvo (simula movimento real do mouse)
-                -- AIM_SPEED controla quantos pixels por frame se move
-                local moveX = math.clamp(delta.X, -AIM_SPEED * 10, AIM_SPEED * 10)
-                local moveY = math.clamp(delta.Y, -AIM_SPEED * 10, AIM_SPEED * 10)
-
-                VIM:SendMouseMoveEvent(
-                    Camera.ViewportSize.X / 2 + moveX,
-                    Camera.ViewportSize.Y / 2 + moveY,
-                    false,
-                    game
-                )
-            end
+            -- Seta Scriptable, aplica CFrame, restaura Custom — tudo no mesmo frame
+            Camera.CameraType = Enum.CameraType.Scriptable
+            Camera.CFrame = CFrame.new(camPos, headPos)
+            task.defer(function()
+                Camera.CameraType = Enum.CameraType.Custom
+            end)
         end
     end
 end)
