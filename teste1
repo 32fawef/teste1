@@ -1,36 +1,20 @@
--- ============================================================
--- ESP + AIMBOT SCRIPT - VERSÃO CORRIGIDA E PODEROSA
--- ============================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
--- ============================================================
--- CONFIGURAÇÕES DO AIMBOT
--- ============================================================
-local AIM_FOV = 250          -- Raio do FOV em pixels (maior = pega mais longe)
-local AIM_SMOOTH = 0.25      -- Suavização: 0.05 = muito suave | 1 = instantâneo
-local AIM_BONE = "Head"      -- Osso alvo: "Head" ou "HumanoidRootPart"
-local AIM_KEY = Enum.KeyCode.Q -- Tecla para ativar aimbot (segure)
+local AIM_FOV = 300
+local AIM_KEY = Enum.KeyCode.Q
 
--- ============================================================
--- INTERFACE GRÁFICA
--- ============================================================
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZurionV2"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
+local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
+if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
-local ok = pcall(function()
-    ScreenGui.Parent = game:GetService("CoreGui")
-end)
-if not ok then
-    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-end
-
--- Janela principal
 local MainFrame = Instance.new("Frame")
 MainFrame.Size = UDim2.new(0, 200, 0, 130)
 MainFrame.Position = UDim2.new(0, 20, 0, 20)
@@ -39,10 +23,8 @@ MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
-
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
--- Barra de título
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 30)
 TitleBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
@@ -79,7 +61,6 @@ Content.Position = UDim2.new(0, 0, 0, 30)
 Content.BackgroundTransparency = 1
 Content.Parent = MainFrame
 
--- Botão ESP
 local EspBtn = Instance.new("TextButton")
 EspBtn.Size = UDim2.new(1, -16, 0, 38)
 EspBtn.Position = UDim2.new(0, 8, 0, 8)
@@ -92,7 +73,6 @@ EspBtn.TextSize = 13
 EspBtn.Parent = Content
 Instance.new("UICorner", EspBtn).CornerRadius = UDim.new(0, 6)
 
--- Botão AIMBOT
 local AimBtn = Instance.new("TextButton")
 AimBtn.Size = UDim2.new(1, -16, 0, 38)
 AimBtn.Position = UDim2.new(0, 8, 0, 54)
@@ -105,16 +85,12 @@ AimBtn.TextSize = 13
 AimBtn.Parent = Content
 Instance.new("UICorner", AimBtn).CornerRadius = UDim.new(0, 6)
 
--- ============================================================
--- ESTADO
--- ============================================================
+-- Estado
 local _ESP = false
 local _AIM = false
 local minimizado = false
 
--- ============================================================
--- ESP - USA HIGHLIGHT (FUNCIONA ATRAVÉS DA PAREDE SEMPRE)
--- ============================================================
+-- ESP com Highlight
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "ESP_Highlights"
 EspFolder.Parent = workspace
@@ -125,40 +101,52 @@ end
 
 local function aplicarHighlight(character, id)
     if EspFolder:FindFirstChild(id) then return end
-
-    -- HIGHLIGHT: método mais confiável para ver através de paredes
     local hl = Instance.new("Highlight")
     hl.Name = id
     hl.Adornee = character
-    hl.FillColor = Color3.new(1, 0, 0)       -- Vermelho por dentro
-    hl.OutlineColor = Color3.new(1, 1, 1)    -- Branco por fora
-    hl.FillTransparency = 0.5                -- Semi-transparente
-    hl.OutlineTransparency = 0               -- Contorno sólido
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- ATRAVESSA PAREDE
+    hl.FillColor = Color3.new(1, 0, 0)
+    hl.OutlineColor = Color3.new(1, 1, 1)
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     hl.Parent = EspFolder
 end
 
--- ============================================================
--- AIMBOT PODEROSO
--- ============================================================
-local function getMelhorAlvo()
-    local melhor = nil
-    local menorDist = AIM_FOV
-    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+-- Botões
+EspBtn.MouseButton1Click:Connect(function()
+    _ESP = not _ESP
+    EspBtn.Text = _ESP and "ESP: ON ✔" or "ESP: OFF"
+    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    if not _ESP then limparESP() end
+end)
 
+AimBtn.MouseButton1Click:Connect(function()
+    _AIM = not _AIM
+    AimBtn.Text = _AIM and "AIMBOT: ON ✔  [Q]" or "AIMBOT: OFF  [Q]"
+    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    if not _AIM then Camera.CameraType = Enum.CameraType.Custom end
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    minimizado = not minimizado
+    Content.Visible = not minimizado
+    MainFrame.Size = minimizado and UDim2.new(0, 200, 0, 30) or UDim2.new(0, 200, 0, 130)
+    MinBtn.Text = minimizado and "+" or "—"
+end)
+
+-- Aimbot: encontra alvo mais próximo do centro
+local function getMelhorAlvo()
+    local melhor, menorDist = nil, AIM_FOV
+    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
-            local bone = p.Character:FindFirstChild(AIM_BONE)
-            local hum = p.Character:FindFirstChild("Humanoid")
-
-            if bone and hum and hum.Health > 0 then
-                local screenPos, onScreen = Camera:WorldToViewportPoint(bone.Position)
+            local head = p.Character:FindFirstChild("Head")
+            local hum  = p.Character:FindFirstChild("Humanoid")
+            if head and hum and hum.Health > 0 then
+                local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
                 if onScreen then
-                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - centro).Magnitude
-                    if dist < menorDist then
-                        menorDist = dist
-                        melhor = p
-                    end
+                    local d = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
+                    if d < menorDist then menorDist = d; melhor = p end
                 end
             end
         end
@@ -166,112 +154,42 @@ local function getMelhorAlvo()
     return melhor
 end
 
--- ============================================================
--- BOTÕES
--- ============================================================
-EspBtn.MouseButton1Click:Connect(function()
-    _ESP = not _ESP
-    if _ESP then
-        EspBtn.Text = "ESP: ON ✔"
-        EspBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 0)
-    else
-        EspBtn.Text = "ESP: OFF"
-        EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-        limparESP()
-    end
-end)
-
-AimBtn.MouseButton1Click:Connect(function()
-    _AIM = not _AIM
-    if _AIM then
-        AimBtn.Text = "AIMBOT: ON ✔  [Q]"
-        AimBtn.BackgroundColor3 = Color3.fromRGB(0, 140, 0)
-    else
-        AimBtn.Text = "AIMBOT: OFF  [Q]"
-        AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-        if Camera.CameraType == Enum.CameraType.Scriptable then
-            Camera.CameraType = Enum.CameraType.Custom
-        end
-    end
-end)
-
-MinBtn.MouseButton1Click:Connect(function()
-    minimizado = not minimizado
-    if minimizado then
-        Content.Visible = false
-        MainFrame.Size = UDim2.new(0, 200, 0, 30)
-        MinBtn.Text = "+"
-    else
-        Content.Visible = true
-        MainFrame.Size = UDim2.new(0, 200, 0, 130)
-        MinBtn.Text = "—"
-    end
-end)
-
--- ============================================================
--- LOOP PRINCIPAL
--- ============================================================
+-- Loop principal
 RunService.RenderStepped:Connect(function()
-
-    -- === ESP ===
+    -- ESP
     if _ESP then
-        -- Jogadores
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
                 local hum = p.Character:FindFirstChild("Humanoid")
                 if hum and hum.Health > 0 then
-                    local id = "HL_Player_" .. p.UserId
+                    local id = "HL_" .. p.UserId
                     local ex = EspFolder:FindFirstChild(id)
-                    if not ex then
-                        aplicarHighlight(p.Character, id)
-                    else
-                        ex.Adornee = p.Character
-                    end
+                    if not ex then aplicarHighlight(p.Character, id)
+                    else ex.Adornee = p.Character end
                 end
             end
         end
-
-        -- NPCs / Mobs (qualquer Humanoid no workspace)
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Humanoid") and obj.Health > 0 then
-                local char = obj.Parent
-                if char and char ~= LocalPlayer.Character then
-                    local id = "HL_NPC_" .. tostring(char:GetDebugId())
-                    if not EspFolder:FindFirstChild(id) then
-                        aplicarHighlight(char, id)
-                    end
-                end
-            end
-        end
-
-        -- Remove highlights de alvos mortos/sumidos
         for _, hl in pairs(EspFolder:GetChildren()) do
-            if not hl.Adornee or not hl.Adornee.Parent then
-                hl:Destroy()
-            end
+            if not hl.Adornee or not hl.Adornee.Parent then hl:Destroy() end
         end
     end
 
-    -- === AIMBOT ===
+    -- AIMBOT
     if _AIM and UserInputService:IsKeyDown(AIM_KEY) then
         local alvo = getMelhorAlvo()
-        if alvo and alvo.Character and alvo.Character:FindFirstChild(AIM_BONE) then
-            local targetPos = alvo.Character[AIM_BONE].Position
+        if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
             Camera.CameraType = Enum.CameraType.Scriptable
-
-            -- Suavização: interpola entre CFrame atual e o alvo
-            local currentCF = Camera.CFrame
-            local targetCF = CFrame.new(currentCF.Position, targetPos)
-            Camera.CFrame = currentCF:Lerp(targetCF, AIM_SMOOTH)
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.Character.Head.Position)
+        else
+            Camera.CameraType = Enum.CameraType.Custom
         end
-    elseif _AIM and not UserInputService:IsKeyDown(AIM_KEY) then
+    elseif _AIM then
         if Camera.CameraType == Enum.CameraType.Scriptable then
             Camera.CameraType = Enum.CameraType.Custom
         end
     end
 end)
 
--- Limpeza
 LocalPlayer.AncestryChanged:Connect(function()
     pcall(function() EspFolder:Destroy() end)
 end)
