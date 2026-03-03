@@ -1,6 +1,6 @@
 -- ============================================================
--- ZURION PRO v5 MOBILE - ESP + AIMBOT TOGGLE + SPEED
--- Funciona em CELULAR - sem teclas, tudo por botão
+-- ZURION PRO v6 MOBILE - AIMBOT CORRIGIDO
+-- Funciona em celular - sem teclas
 -- ============================================================
 
 local Players          = game:GetService("Players")
@@ -14,7 +14,7 @@ local SPEED_BASE = 16
 -- GUI
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionV5Mobile"
+ScreenGui.Name = "ZurionV6"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
@@ -22,21 +22,21 @@ if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 -- BOTÃO FLUTUANTE PARA ABRIR
 local OpenBtn = Instance.new("TextButton")
-OpenBtn.Size = UDim2.new(0, 100, 0, 32)
+OpenBtn.Size = UDim2.new(0, 100, 0, 36)
 OpenBtn.Position = UDim2.new(0, 20, 0, 20)
 OpenBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
 OpenBtn.BorderSizePixel = 0
 OpenBtn.Text = "⚡ ZURION"
 OpenBtn.TextColor3 = Color3.new(1, 1, 1)
 OpenBtn.Font = Enum.Font.GothamBold
-OpenBtn.TextSize = 13
+OpenBtn.TextSize = 14
 OpenBtn.Visible = false
 OpenBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 
 -- PAINEL PRINCIPAL
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 240, 0, 270)
+Main.Size = UDim2.new(0, 240, 0, 280)
 Main.Position = UDim2.new(0, 20, 0, 20)
 Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Main.BorderSizePixel = 0
@@ -57,14 +57,13 @@ local TitleLbl = Instance.new("TextLabel")
 TitleLbl.Size = UDim2.new(1, -44, 1, 0)
 TitleLbl.Position = UDim2.new(0, 10, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ ZURION PRO v5"
+TitleLbl.Text = "⚡ ZURION PRO v6"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 14
 TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TBar
 
--- BOTÃO X
 local CloseBtn = Instance.new("TextButton")
 CloseBtn.Size = UDim2.new(0, 32, 0, 32)
 CloseBtn.Position = UDim2.new(1, -36, 0, 2)
@@ -77,7 +76,6 @@ CloseBtn.TextSize = 15
 CloseBtn.Parent = TBar
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
--- CONTEÚDO
 local C = Instance.new("Frame")
 C.Size = UDim2.new(1, 0, 1, -36)
 C.Position = UDim2.new(0, 0, 0, 36)
@@ -104,14 +102,13 @@ local function makeLabel(parent, size, pos, text)
     return l
 end
 
--- BOTÕES PRINCIPAIS (tamanho maior para toque no celular)
-local EspBtn   = makeBtn(C, UDim2.new(1,-16,0,42), UDim2.new(0,8,0,8),   Color3.fromRGB(100,0,0), "ESP: OFF")
-local AimBtn   = makeBtn(C, UDim2.new(1,-16,0,42), UDim2.new(0,8,0,58),  Color3.fromRGB(100,0,0), "AIMBOT: OFF")
-local SpeedBtn = makeBtn(C, UDim2.new(1,-16,0,42), UDim2.new(0,8,0,108), Color3.fromRGB(100,0,0), "SPEED: OFF")
+local EspBtn   = makeBtn(C, UDim2.new(1,-16,0,44), UDim2.new(0,8,0,8),   Color3.fromRGB(100,0,0), "ESP: OFF")
+local AimBtn   = makeBtn(C, UDim2.new(1,-16,0,44), UDim2.new(0,8,0,60),  Color3.fromRGB(100,0,0), "AIMBOT: OFF")
+local SpeedBtn = makeBtn(C, UDim2.new(1,-16,0,44), UDim2.new(0,8,0,112), Color3.fromRGB(100,0,0), "SPEED: OFF")
 
-local SpeedLbl = makeLabel(C, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,158), "Velocidade: nível 5")
-local MinusBtn = makeBtn(C, UDim2.new(0,70,0,36), UDim2.new(0,8,0,178),   Color3.fromRGB(50,50,50), "  −  ")
-local PlusBtn  = makeBtn(C, UDim2.new(0,70,0,36), UDim2.new(1,-78,0,178), Color3.fromRGB(50,50,50), "  +  ")
+local SpeedLbl = makeLabel(C, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,164), "Velocidade: nível 5")
+local MinusBtn = makeBtn(C, UDim2.new(0,70,0,36), UDim2.new(0,8,0,184),   Color3.fromRGB(50,50,50), "  −  ")
+local PlusBtn  = makeBtn(C, UDim2.new(0,70,0,36), UDim2.new(1,-78,0,184), Color3.fromRGB(50,50,50), "  +  ")
 
 -- ============================================================
 -- FECHAR / ABRIR
@@ -135,7 +132,7 @@ local _SPEED    = false
 local speedLevel = 5
 
 -- ============================================================
--- ESP COM HIGHLIGHT (atravessa paredes)
+-- ESP COM HIGHLIGHT
 -- ============================================================
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "ESP_Folder"
@@ -159,8 +156,9 @@ local function aplicarHighlight(character, id)
 end
 
 -- ============================================================
--- AIMBOT SIMPLES: Câmera segue o HumanoidRootPart mais próximo
--- Ativa/desativa pelo botão — SEM TECLA (funciona no celular)
+-- AIMBOT CORRIGIDO
+-- Técnica: força CameraType.Scriptable a cada frame
+-- Isso impede o jogo de resetar a câmera
 -- ============================================================
 local function getMelhorAlvo()
     local melhor, menorDist = nil, math.huge
@@ -231,11 +229,8 @@ end)
 AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
     setBtn(AimBtn, _AIM, "AIMBOT: ON ✔", "AIMBOT: OFF")
-
-    -- Ativa ou desativa o modo Scriptable da câmera
-    if _AIM then
-        Camera.CameraType = Enum.CameraType.Scriptable
-    else
+    -- Quando desligar, volta câmera para modo normal
+    if not _AIM then
         Camera.CameraType = Enum.CameraType.Custom
     end
 end)
@@ -282,14 +277,18 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- === AIMBOT: Câmera segue o Humanoid mais próximo do centro ===
-    -- Ativa/desativa pelo botão — sem precisar segurar tecla
+    -- === AIMBOT CORRIGIDO ===
     if _AIM then
+        -- FORÇA Scriptable a cada frame — impede o jogo de resetar
+        Camera.CameraType = Enum.CameraType.Scriptable
+
         local alvo = getMelhorAlvo()
         if alvo and alvo.Character then
             local hrp = alvo.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
-                Camera.CFrame = CFrame.new(Camera.CFrame.Position, hrp.Position)
+                -- Lerp suave: câmera vai gradualmente para o alvo
+                local targetCF = CFrame.new(Camera.CFrame.Position, hrp.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.3)
             end
         end
     end
@@ -298,4 +297,5 @@ end)
 -- Limpeza ao sair
 LocalPlayer.AncestryChanged:Connect(function()
     pcall(function() EspFolder:Destroy() end)
+    pcall(function() Camera.CameraType = Enum.CameraType.Custom end)
 end)
