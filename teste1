@@ -1,157 +1,179 @@
-
-há menos de um minuto
-Analisando o script Lua do Roblox, identifiquei vários problemas com a lógica do ESP e do Aimbot. Vamos analisá-los e corrigi-los:
-
-Problemas de ESP:
-
-SelectionBox.LineAlphanão é uma propriedade válida — deveria ser SurfaceTransparencyou simplesmente removida.
-A lógica de limpeza de caixas é executada mesmo quando o ESP está ATIVADO (ela destrói caixas para jogadores que não o têm HumanoidRootPart, mas a condição está incorreta).
-A caixa está vinculada a p.Characterum objeto que é destruído ao reiniciar — deveria estar vinculada a um espaço de trabalho ou a uma pasta.
-Problemas com o aimbot:
-
-Camera:WorldToViewportPoint()retorna 3 valores: (Vector3, boolean, number)— a variável screené na verdade um onScreenbooleano, mas a desestruturação está incorreta (retorna " pos, onScreen, depthnão pos, screen")
-O bloqueio da câmera pode ser anulado pelos scripts de câmera do jogo.
-Segue o roteiro corrigido:
-
+-- ESP Script com Interface - Todos os Humanoids ficam vermelhos
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 
--- 1. INTERFACE DE CONTROLE
+-- =============================================
+-- INTERFACE GRÁFICA
+-- =============================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "Painel_Zurion_Real"
+ScreenGui.Name = "ESP_GUI"
 ScreenGui.ResetOnSpawn = false
 
--- Tenta CoreGui primeiro, senão usa PlayerGui
-local success = pcall(function()
+local ok = pcall(function()
     ScreenGui.Parent = game:GetService("CoreGui")
 end)
-if not success then
+if not ok then
     ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
-local Frame = Instance.new("Frame")
-Frame.Size = UDim2.new(0, 160, 0, 100)
-Frame.Position = UDim2.new(0, 50, 0, 50)
-Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-Frame.Active = true
-Frame.Draggable = true
-Frame.Parent = ScreenGui
+-- Janela principal
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 180, 0, 90)
+MainFrame.Position = UDim2.new(0, 20, 0, 20)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
 
-local EspBtn = Instance.new("TextButton", Frame)
-EspBtn.Size = UDim2.new(1, 0, 0.5, 0)
-EspBtn.Text = "ESP: OFF"
-EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-EspBtn.TextColor3 = Color3.new(1,1,1)
+-- Barra de título
+local TitleBar = Instance.new("Frame")
+TitleBar.Size = UDim2.new(1, 0, 0, 28)
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
 
-local AimBtn = Instance.new("TextButton", Frame)
-AimBtn.Size = UDim2.new(1, 0, 0.5, 0)
-AimBtn.Position = UDim2.new(0, 0, 0.5, 0)
-AimBtn.Text = "AIMBOT: OFF"
-AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-AimBtn.TextColor3 = Color3.new(1,1,1)
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -30, 1, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "  🔴 ESP"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 13
+Title.Parent = TitleBar
 
--- VARIÁVEIS DE ESTADO
+-- Botão minimizar/maximizar
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 28, 1, 0)
+MinBtn.Position = UDim2.new(1, -28, 0, 0)
+MinBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+MinBtn.BorderSizePixel = 0
+MinBtn.Text = "—"
+MinBtn.TextColor3 = Color3.new(1, 1, 1)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 14
+MinBtn.Parent = TitleBar
+
+-- Conteúdo (esconde ao minimizar)
+local Content = Instance.new("Frame")
+Content.Size = UDim2.new(1, 0, 1, -28)
+Content.Position = UDim2.new(0, 0, 0, 28)
+Content.BackgroundTransparency = 1
+Content.Parent = MainFrame
+
+-- Botão ESP ON/OFF
+local EspBtn = Instance.new("TextButton")
+EspBtn.Size = UDim2.new(1, -16, 0, 36)
+EspBtn.Position = UDim2.new(0, 8, 0, 10)
+EspBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+EspBtn.BorderSizePixel = 0
+EspBtn.Text = "ESP: DESATIVADO"
+EspBtn.TextColor3 = Color3.new(1, 1, 1)
+EspBtn.Font = Enum.Font.GothamBold
+EspBtn.TextSize = 13
+EspBtn.Parent = Content
+
+-- Cantos arredondados no botão
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 6)
+Corner.Parent = EspBtn
+
+-- =============================================
+-- LÓGICA DO ESP
+-- =============================================
 local _ESP = false
-local _AIM = false
-
--- Pasta para guardar os SelectionBoxes (evita sumir no respawn)
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "ESP_Boxes"
 EspFolder.Parent = workspace
 
+local function limparESP()
+    for _, v in pairs(EspFolder:GetChildren()) do
+        v:Destroy()
+    end
+end
+
+local function criarBox(character, name)
+    if EspFolder:FindFirstChild(name) then return end
+    local box = Instance.new("SelectionBox")
+    box.Name = name
+    box.Adornee = character
+    box.Color3 = Color3.new(1, 0, 0)       -- Vermelho
+    box.SurfaceColor3 = Color3.new(1, 0, 0)
+    box.SurfaceTransparency = 0.7
+    box.LineThickness = 0.05
+    box.AlwaysOnTop = true                  -- Vê através das paredes
+    box.Parent = EspFolder
+end
+
+-- Botão toggle ESP
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
-    EspBtn.Text = _ESP and "ESP: ON" or "ESP: OFF"
-    EspBtn.BackgroundColor3 = _ESP and Color3.new(0, 0.5, 0) or Color3.new(0.5, 0, 0)
-    -- Limpa todos os boxes ao desligar
-    if not _ESP then
-        for _, box in pairs(EspFolder:GetChildren()) do
+    if _ESP then
+        EspBtn.Text = "ESP: ATIVADO ✔"
+        EspBtn.BackgroundColor3 = Color3.fromRGB(0, 130, 0)
+    else
+        EspBtn.Text = "ESP: DESATIVADO"
+        EspBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 0)
+        limparESP()
+    end
+end)
+
+-- Minimizar / Maximizar
+local minimizado = false
+MinBtn.MouseButton1Click:Connect(function()
+    minimizado = not minimizado
+    if minimizado then
+        Content.Visible = false
+        MainFrame.Size = UDim2.new(0, 180, 0, 28)
+        MinBtn.Text = "+"
+    else
+        Content.Visible = true
+        MainFrame.Size = UDim2.new(0, 180, 0, 90)
+        MinBtn.Text = "—"
+    end
+end)
+
+-- =============================================
+-- LOOP PRINCIPAL - Detecta TODOS os Humanoids
+-- =============================================
+RunService.RenderStepped:Connect(function()
+    if not _ESP then return end
+
+    -- Varre TODOS os modelos no workspace que tenham Humanoid
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Humanoid") and obj.Health > 0 then
+            local character = obj.Parent
+            if character and character ~= LocalPlayer.Character then
+                local root = character:FindFirstChild("HumanoidRootPart")
+                    or character:FindFirstChildWhichIsA("BasePart")
+
+                if root then
+                    local boxName = "ESP_" .. character.Name .. "_" .. tostring(character:GetDebugId())
+                    local existing = EspFolder:FindFirstChild(boxName)
+
+                    if not existing then
+                        criarBox(character, boxName)
+                    else
+                        -- Atualiza adornee caso tenha mudado
+                        existing.Adornee = character
+                    end
+                end
+            end
+        end
+    end
+
+    -- Remove boxes de personagens que morreram ou sumiram
+    for _, box in pairs(EspFolder:GetChildren()) do
+        if not box.Adornee or not box.Adornee.Parent then
             box:Destroy()
         end
     end
 end)
 
-AimBtn.MouseButton1Click:Connect(function()
-    _AIM = not _AIM
-    AimBtn.Text = _AIM and "AIMBOT: ON" or "AIMBOT: OFF"
-    AimBtn.BackgroundColor3 = _AIM and Color3.new(0, 0.5, 0) or Color3.new(0.5, 0, 0)
-end)
-
--- LÓGICA DE EXECUÇÃO
-RunService.RenderStepped:Connect(function()
-    -- ESP
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            local boxName = "ESP_" .. p.UserId
-            local existingBox = EspFolder:FindFirstChild(boxName)
-
-            if _ESP and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                if not existingBox then
-                    local box = Instance.new("SelectionBox")
-                    box.Name = boxName
-                    box.Adornee = p.Character
-                    box.Color3 = Color3.new(1, 0, 0)
-                    box.SurfaceTransparency = 0.5
-                    box.AlwaysOnTop = true
-                    box.Parent = EspFolder
-                else
-                    -- Atualiza o adornee caso o personagem tenha mudado (respawn)
-                    existingBox.Adornee = p.Character
-                end
-            else
-                if existingBox then
-                    existingBox:Destroy()
-                end
-            end
-        end
-    end
-
-    -- AIMBOT
-    if _AIM then
-        local target = nil
-        local closestDist = math.huge
-
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local head = p.Character:FindFirstChild("Head")
-                local humanoid = p.Character:FindFirstChild("Humanoid")
-
-                if head and humanoid and humanoid.Health > 0 then
-                    -- WorldToViewportPoint retorna: Vector3(posX, posY, depth), onScreen
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-
-                    if onScreen then
-                        local center = Vector2.new(
-                            Camera.ViewportSize.X / 2,
-                            Camera.ViewportSize.Y / 2
-                        )
-                        local mDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
-
-                        if mDist < closestDist then
-                            closestDist = mDist
-                            target = p
-                        end
-                    end
-                end
-            end
-        end
-
-        if target and target.Character and target.Character:FindFirstChild("Head") then
-            -- Desbloqueia o tipo de câmera para permitir override
-            Camera.CameraType = Enum.CameraType.Scriptable
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character.Head.Position)
-        end
-    else
-        -- Restaura câmera normal quando aimbot está OFF
-        if Camera.CameraType == Enum.CameraType.Scriptable then
-            Camera.CameraType = Enum.CameraType.Custom
-        end
-    end
-end)
-
--- Limpa a pasta ESP ao sair
-game:GetService("Players").LocalPlayer.AncestryChanged:Connect(function()
-    if EspFolder then EspFolder:Destroy() end
+-- Limpeza ao sair
+LocalPlayer.AncestryChanged:Connect(function()
+    pcall(function() EspFolder:Destroy() end)
 end)
