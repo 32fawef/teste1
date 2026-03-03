@@ -1,163 +1,336 @@
 -- ============================================================
--- ZURION PRO v8 MOBILE - FOV & ESP FIXED
+-- ZURION PRO v8 MOBILE - FOV CIRCLE + SILENT AIM
+-- Círculo de FOV vermelho + câmera livre + assistência de mira
 -- ============================================================
-local Players    = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-local Camera     = workspace.CurrentCamera
+
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
+local LocalPlayer      = Players.LocalPlayer
+local Camera           = workspace.CurrentCamera
+
+local SPEED_BASE = 16
 
 -- ============================================================
--- CONFIGURAÇÕES E ESTADOS
+-- FOV CIRCLE (Círculo vermelho no centro da tela)
+-- Usa Drawing Library do executor
 -- ============================================================
-local _ESP = false
-local _AIM = false
-local _SPEED = false
-local _FOV_RADIUS = 150 -- Tamanho da bola do Aimbot
-local speedLevel = 5
+local FOV_RADIUS = 120  -- Tamanho do círculo (pixels)
+local SMOOTHNESS = 0.1  -- Suavidade do aimbot (0.05 = muito suave, 0.3 = rápido)
+
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = false
+fovCircle.Radius = FOV_RADIUS
+fovCircle.Color = Color3.fromRGB(255, 0, 0)
+fovCircle.Thickness = 2
+fovCircle.Filled = false
+fovCircle.NumSides = 64
 
 -- ============================================================
--- GUI - INTERFACE
+-- GUI
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZurionV8"
 ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- CIRCULO DE FOV (Versão compatível com Mobile)
-local FOVFrame = Instance.new("ImageLabel")
-FOVFrame.Name = "FOV_Circle"
-FOVFrame.BackgroundTransparency = 1
-FOVFrame.Image = "rbxassetid://2851939495" -- Círculo perfeito
-FOVFrame.ImageColor3 = Color3.fromRGB(255, 0, 0)
-FOVFrame.Size = UDim2.new(0, _FOV_RADIUS * 2, 0, _FOV_RADIUS * 2)
-FOVFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-FOVFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-FOVFrame.Visible = false
-FOVFrame.Parent = ScreenGui
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Size = UDim2.new(0, 100, 0, 36)
+OpenBtn.Position = UDim2.new(0, 20, 0, 20)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+OpenBtn.BorderSizePixel = 0
+OpenBtn.Text = "⚡ ZURION"
+OpenBtn.TextColor3 = Color3.new(1, 1, 1)
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.TextSize = 14
+OpenBtn.Visible = false
+OpenBtn.Parent = ScreenGui
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 
--- PAINEL PRINCIPAL
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 220, 0, 280)
+local Main = Instance.new("Frame")
+Main.Size = UDim2.new(0, 240, 0, 300)
 Main.Position = UDim2.new(0, 20, 0, 20)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
+Main.Parent = ScreenGui
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
-Title.Text = "⚡ ZURION PRO v8"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.Font = Enum.Font.GothamBold
+local TBar = Instance.new("Frame")
+TBar.Size = UDim2.new(1, 0, 0, 36)
+TBar.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+TBar.BorderSizePixel = 0
+TBar.Parent = Main
+Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 10)
 
-local function makeBtn(text, pos, parent)
-    local b = Instance.new("TextButton", parent)
-    b.Size = UDim2.new(0.9, 0, 0, 40)
-    b.Position = pos
-    b.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-    b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", b)
+local TitleLbl = Instance.new("TextLabel")
+TitleLbl.Size = UDim2.new(1, -44, 1, 0)
+TitleLbl.Position = UDim2.new(0, 10, 0, 0)
+TitleLbl.BackgroundTransparency = 1
+TitleLbl.Text = "⚡ ZURION PRO v8"
+TitleLbl.TextColor3 = Color3.new(1, 1, 1)
+TitleLbl.Font = Enum.Font.GothamBold
+TitleLbl.TextSize = 14
+TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
+TitleLbl.Parent = TBar
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 32, 0, 32)
+CloseBtn.Position = UDim2.new(1, -36, 0, 2)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+CloseBtn.BorderSizePixel = 0
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 15
+CloseBtn.Parent = TBar
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+
+local C = Instance.new("Frame")
+C.Size = UDim2.new(1, 0, 1, -36)
+C.Position = UDim2.new(0, 0, 0, 36)
+C.BackgroundTransparency = 1
+C.Parent = Main
+
+local function makeBtn(parent, size, pos, color, text)
+    local b = Instance.new("TextButton")
+    b.Size = size; b.Position = pos
+    b.BackgroundColor3 = color; b.BorderSizePixel = 0
+    b.Text = text; b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold; b.TextSize = 14
+    b.Parent = parent
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
     return b
 end
 
-local EspBtn   = makeBtn("ESP: OFF", UDim2.new(0.05, 0, 0.2, 0), Main)
-local AimBtn   = makeBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.4, 0), Main)
-local SpeedBtn = makeBtn("SPEED: OFF", UDim2.new(0.05, 0, 0.6, 0), Main)
+local function makeLabel(parent, size, pos, text)
+    local l = Instance.new("TextLabel")
+    l.Size = size; l.Position = pos
+    l.BackgroundTransparency = 1; l.Text = text
+    l.TextColor3 = Color3.new(1, 1, 1); l.Font = Enum.Font.Gotham
+    l.TextSize = 12; l.Parent = parent
+    return l
+end
+
+local EspBtn   = makeBtn(C, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,8),   Color3.fromRGB(100,0,0), "ESP: OFF")
+local AimBtn   = makeBtn(C, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,56),  Color3.fromRGB(100,0,0), "AIMBOT: OFF")
+local SpeedBtn = makeBtn(C, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,104), Color3.fromRGB(100,0,0), "SPEED: OFF")
+
+-- Controle de FOV
+local FovLbl   = makeLabel(C, UDim2.new(1,-16,0,16), UDim2.new(0,8,0,152), "FOV: 120px")
+local FovMinus = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(0,8,0,170),   Color3.fromRGB(50,50,50), "  −  ")
+local FovPlus  = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,170), Color3.fromRGB(50,50,50), "  +  ")
+
+local SpeedLbl = makeLabel(C, UDim2.new(1,-16,0,16), UDim2.new(0,8,0,210), "Velocidade: nível 5")
+local MinusBtn = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(0,8,0,228),   Color3.fromRGB(50,50,50), "  −  ")
+local PlusBtn  = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,228), Color3.fromRGB(50,50,50), "  +  ")
 
 -- ============================================================
--- LÓGICA DO ESP (CORRIGIDA PARA VER ATRAVÉS DA PAREDE)
+-- FECHAR / ABRIR
 -- ============================================================
-local function criarESP(player)
-    if player.Character then
-        local highlight = player.Character:FindFirstChild("ZurionESP")
-        if not highlight then
-            highlight = Instance.new("Highlight")
-            highlight.Name = "ZurionESP"
-            highlight.Parent = player.Character
-        end
-        highlight.Adornee = player.Character
-        highlight.FillColor = Color3.fromRGB(255, 0, 0)
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.FillTransparency = 0.5
-        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- ISSO FAZ VER ATRAVÉS DA PAREDE
-        highlight.Enabled = _ESP
-    end
+CloseBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    OpenBtn.Visible = true
+end)
+
+OpenBtn.MouseButton1Click:Connect(function()
+    Main.Visible = true
+    OpenBtn.Visible = false
+end)
+
+-- ============================================================
+-- ESTADO
+-- ============================================================
+local _ESP      = false
+local _AIM      = false
+local _SPEED    = false
+local speedLevel = 5
+
+-- ============================================================
+-- ESP COM HIGHLIGHT
+-- ============================================================
+local EspFolder = Instance.new("Folder")
+EspFolder.Name = "ESP_Folder"
+EspFolder.Parent = workspace
+
+local function limparESP()
+    for _, v in pairs(EspFolder:GetChildren()) do v:Destroy() end
+end
+
+local function aplicarHighlight(character, id)
+    if EspFolder:FindFirstChild(id) then return end
+    local hl = Instance.new("Highlight")
+    hl.Name = id
+    hl.Adornee = character
+    hl.FillColor = Color3.new(1, 0, 0)
+    hl.OutlineColor = Color3.new(1, 1, 1)
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent = EspFolder
 end
 
 -- ============================================================
--- LÓGICA DO AIMBOT (DENTRO DA BOLA)
+-- AIMBOT v8 - FOV CIRCLE + SILENT AIM (câmera livre)
+-- Só ativa quando inimigo está dentro do círculo FOV
+-- Câmera NÃO trava — apenas assistência suave
 -- ============================================================
-local function getAlvoNoFOV()
-    local alvo, menorDist = nil, _FOV_RADIUS
-    local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+local function getMelhorAlvoNoFOV()
+    local melhor, menorDist = nil, math.huge
+    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local pos, naTela = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
-            if naTela then
-                local dist = (Vector2.new(pos.X, pos.Y) - centroTela).Magnitude
-                if dist < menorDist then
-                    menorDist = dist
-                    alvo = p
+        if p ~= LocalPlayer and p.Character then
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            local hum = p.Character:FindFirstChild("Humanoid")
+            if hrp and hum and hum.Health > 0 then
+                local sp, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local screenPos = Vector2.new(sp.X, sp.Y)
+                    local distFromCentro = (screenPos - centro).Magnitude
+                    -- Só considera alvos DENTRO do círculo FOV
+                    if distFromCentro <= FOV_RADIUS and distFromCentro < menorDist then
+                        menorDist = distFromCentro
+                        melhor = p
+                    end
                 end
             end
         end
     end
-    return alvo
+    return melhor
 end
 
 -- ============================================================
--- INTERAÇÕES
+-- SPEED
 -- ============================================================
+local function getWalkSpeed()
+    return SPEED_BASE + speedLevel * 14
+end
+
+local function aplicarSpeed()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if hum then
+        hum.WalkSpeed = _SPEED and getWalkSpeed() or SPEED_BASE
+    end
+end
+
+local function atualizarSpeedUI()
+    SpeedLbl.Text = string.format("Velocidade: nível %d  (WalkSpeed %d)", speedLevel, getWalkSpeed())
+    if _SPEED then aplicarSpeed() end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if _SPEED then
+        task.wait(0.5)
+        local hum = char:WaitForChild("Humanoid")
+        hum.WalkSpeed = getWalkSpeed()
+    end
+end)
+
+-- ============================================================
+-- BOTÕES
+-- ============================================================
+local function setBtn(btn, state, onText, offText)
+    btn.Text = state and onText or offText
+    btn.BackgroundColor3 = state and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+end
+
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
-    EspBtn.Text = _ESP and "ESP: ON ✔" or "ESP: OFF"
-    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(100, 0, 0)
+    setBtn(EspBtn, _ESP, "ESP: ON ✔", "ESP: OFF")
+    if not _ESP then limparESP() end
 end)
 
 AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
-    AimBtn.Text = _AIM and "AIMBOT: ON ✔" or "AIMBOT: OFF"
-    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(100, 0, 0)
-    FOVFrame.Visible = _AIM
+    setBtn(AimBtn, _AIM, "AIMBOT: ON ✔", "AIMBOT: OFF")
+    -- Mostra/esconde o círculo FOV
+    fovCircle.Visible = _AIM
 end)
 
 SpeedBtn.MouseButton1Click:Connect(function()
     _SPEED = not _SPEED
-    SpeedBtn.Text = _SPEED and "SPEED: ON ✔" or "SPEED: OFF"
-    SpeedBtn.BackgroundColor3 = _SPEED and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(100, 0, 0)
+    setBtn(SpeedBtn, _SPEED, "SPEED: ON ✔", "SPEED: OFF")
+    aplicarSpeed()
+end)
+
+FovMinus.MouseButton1Click:Connect(function()
+    FOV_RADIUS = math.max(40, FOV_RADIUS - 20)
+    fovCircle.Radius = FOV_RADIUS
+    FovLbl.Text = "FOV: " .. FOV_RADIUS .. "px"
+end)
+
+FovPlus.MouseButton1Click:Connect(function()
+    FOV_RADIUS = math.min(400, FOV_RADIUS + 20)
+    fovCircle.Radius = FOV_RADIUS
+    FovLbl.Text = "FOV: " .. FOV_RADIUS .. "px"
+end)
+
+MinusBtn.MouseButton1Click:Connect(function()
+    speedLevel = math.max(1, speedLevel - 1)
+    atualizarSpeedUI()
+end)
+
+PlusBtn.MouseButton1Click:Connect(function()
+    speedLevel = math.min(10, speedLevel + 1)
+    atualizarSpeedUI()
 end)
 
 -- ============================================================
--- LOOP DE EXECUÇÃO
+-- LOOP PRINCIPAL
 -- ============================================================
 RunService.RenderStepped:Connect(function()
-    -- Loop do ESP
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local hl = p.Character:FindFirstChild("ZurionESP")
-            if _ESP then
-                criarESP(p)
-            elseif hl then
-                hl:Destroy()
+
+    -- Atualiza posição do círculo FOV no centro da tela
+    if fovCircle.Visible then
+        fovCircle.Position = Vector2.new(
+            Camera.ViewportSize.X / 2,
+            Camera.ViewportSize.Y / 2
+        )
+    end
+
+    -- === ESP ===
+    if _ESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local hum = p.Character:FindFirstChild("Humanoid")
+                if hum and hum.Health > 0 then
+                    local id = "HL_" .. p.UserId
+                    local ex = EspFolder:FindFirstChild(id)
+                    if not ex then
+                        aplicarHighlight(p.Character, id)
+                    else
+                        ex.Adornee = p.Character
+                    end
+                end
+            end
+        end
+        for _, hl in pairs(EspFolder:GetChildren()) do
+            if not hl.Adornee or not hl.Adornee.Parent then hl:Destroy() end
+        end
+    end
+
+    -- === AIMBOT v8 - FOV CIRCLE + SILENT AIM ===
+    if _AIM then
+        local alvo = getMelhorAlvoNoFOV()
+        if alvo and alvo.Character then
+            local hrp = alvo.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                -- Câmera LIVRE: apenas assistência suave (não trava)
+                -- Lerp 0.1 = muito suave, câmera "ajuda" a mira
+                local targetCF = CFrame.new(Camera.CFrame.Position, hrp.Position)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCF, SMOOTHNESS)
             end
         end
     end
+end)
 
-    -- Loop do Aimbot
-    if _AIM then
-        local alvo = getAlvoNoFOV()
-        if alvo and alvo.Character and alvo.Character:FindFirstChild("HumanoidRootPart") then
-            -- Suavidade para não travar a câmera (Lerp)
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, alvo.Character.HumanoidRootPart.Position), 0.15)
-        end
-    end
-
-    -- Loop do Speed
-    if _SPEED and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = 16 + (speedLevel * 10)
-    end
+-- Limpeza ao sair
+LocalPlayer.AncestryChanged:Connect(function()
+    pcall(function() EspFolder:Destroy() end)
+    pcall(function() fovCircle:Remove() end)
 end)
