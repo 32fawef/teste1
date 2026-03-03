@@ -1,144 +1,105 @@
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
 
--- 1. SISTEMA DE SEGURANÇA DA INTERFACE
-local guiName = "AuditoriaGUI_Segura"
-local targetParent
-
-local sucesso = pcall(function() targetParent = game:GetService("CoreGui") end)
-if not sucesso or not targetParent then
-    targetParent = LocalPlayer:WaitForChild("PlayerGui")
-end
-
-for _, v in pairs(targetParent:GetChildren()) do
-    if v.Name == guiName then v:Destroy() end
-end
-
--- 2. CRIANDO A INTERFACE FIXA
+-- 1. INTERFACE MELHORADA
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = guiName
-ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = targetParent
+ScreenGui.Name = "Auditoria_Final"
+ScreenGui.Parent = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 200, 0, 130)
-MainFrame.Position = UDim2.new(0, 50, 0, 50)
-MainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-MainFrame.BorderSizePixel = 2
-MainFrame.BorderColor3 = Color3.fromRGB(0, 0, 0)
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 180, 0, 110)
+Frame.Position = UDim2.new(0.05, 0, 0.4, 0)
+Frame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+Frame.Active = true
+Frame.Draggable = true
+Frame.Parent = ScreenGui
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 30)
-Title.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-Title.TextSize = 14
-Title.Font = Enum.Font.Code
-Title.Text = "PAINEL DE AUDITORIA"
-Title.Parent = MainFrame
+local t = Instance.new("TextLabel", Frame)
+t.Size = UDim2.new(1, 0, 0, 25)
+t.Text = "AUDITORIA V3"
+t.TextColor3 = Color3.new(1, 1, 1)
+t.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
 
-local ESPBtn = Instance.new("TextButton")
-ESPBtn.Size = UDim2.new(0, 180, 0, 35)
-ESPBtn.Position = UDim2.new(0, 10, 0, 40)
-ESPBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-ESPBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-ESPBtn.Font = Enum.Font.Code
-ESPBtn.TextSize = 14
-ESPBtn.Text = "ESP: DESLIGADO"
-ESPBtn.Parent = MainFrame
+local EspBtn = Instance.new("TextButton", Frame)
+EspBtn.Size = UDim2.new(0.9, 0, 0, 30)
+EspBtn.Position = UDim2.new(0.05, 0, 0.3, 0)
+EspBtn.Text = "ESP: OFF"
+EspBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 
-local AimbotBtn = Instance.new("TextButton")
-AimbotBtn.Size = UDim2.new(0, 180, 0, 35)
-AimbotBtn.Position = UDim2.new(0, 10, 0, 85)
-AimbotBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-AimbotBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-AimbotBtn.Font = Enum.Font.Code
-AimbotBtn.TextSize = 14
-AimbotBtn.Text = "AIMBOT: DESLIGADO"
-AimbotBtn.Parent = MainFrame
+local AimBtn = Instance.new("TextButton", Frame)
+AimBtn.Size = UDim2.new(0.9, 0, 0, 30)
+AimBtn.Position = UDim2.new(0.05, 0, 0.65, 0)
+AimBtn.Text = "AIMBOT: OFF"
+AimBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
 
--- 3. VARIÁVEIS DE CONTROLE
-local espAtivo = false
-local aimbotAtivo = false
+-- VARIÁVEIS
+local _ESP = false
+local _AIM = false
 
--- 4. BOTÕES
-ESPBtn.MouseButton1Click:Connect(function()
-    espAtivo = not espAtivo
-    if espAtivo then
-        ESPBtn.Text = "ESP: LIGADO"
-        ESPBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-    else
-        ESPBtn.Text = "ESP: DESLIGADO"
-        ESPBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-        -- Remove o ESP de todos ao desligar
-        for _, p in pairs(Players:GetPlayers()) do
-            if p.Character and p.Character:FindFirstChild("AuditoriaESP") then
-                p.Character.AuditoriaESP:Destroy()
-            end
-        end
-    end
+EspBtn.MouseButton1Click:Connect(function()
+    _ESP = not _ESP
+    EspBtn.Text = _ESP and "ESP: ON" or "ESP: OFF"
+    EspBtn.BackgroundColor3 = _ESP and Color3.new(0, 0.6, 0) or Color3.new(0.6, 0, 0)
 end)
 
-AimbotBtn.MouseButton1Click:Connect(function()
-    aimbotAtivo = not aimbotAtivo
-    if aimbotAtivo then
-        AimbotBtn.Text = "AIMBOT: LIGADO"
-        AimbotBtn.BackgroundColor3 = Color3.fromRGB(0, 150, 0)
-    else
-        AimbotBtn.Text = "AIMBOT: DESLIGADO"
-        AimbotBtn.BackgroundColor3 = Color3.fromRGB(150, 0, 0)
-    end
+AimBtn.MouseButton1Click:Connect(function()
+    _AIM = not _AIM
+    AimBtn.Text = _AIM and "AIMBOT: ON" or "AIMBOT: OFF"
+    AimBtn.BackgroundColor3 = _AIM and Color3.new(0, 0.6, 0) or Color3.new(0.6, 0, 0)
 end)
 
--- 5. LOOP DE EXECUÇÃO
+-- FUNÇÃO PARA CRIAR CAIXA DE ESP (Sempre visível)
+local function CreateBox(player)
+    local b = Instance.new("BillboardGui")
+    b.Name = "ESP_Box"
+    b.AlwaysOnTop = true
+    b.Size = UDim2.new(4, 0, 5, 0)
+    b.Adornee = player.Character:WaitForChild("HumanoidRootPart")
+    b.Parent = player.Character
+
+    local frame = Instance.new("Frame", b)
+    frame.Size = UDim2.new(1, 0, 1, 0)
+    frame.BackgroundTransparency = 1
+    local line = Instance.new("UIStroke", frame)
+    line.Thickness = 2
+    line.Color = Color3.new(1, 0, 0) -- Cor da Caixa (Vermelha)
+end
+
+-- LOOP PRINCIPAL
 RunService.RenderStepped:Connect(function()
-    
-    -- Lógica do ESP (Agora vê através das paredes)
-    if espAtivo then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local hl = p.Character:FindFirstChild("AuditoriaESP")
-                if not hl then
-                    hl = Instance.new("Highlight")
-                    hl.Name = "AuditoriaESP"
-                    hl.FillColor = Color3.fromRGB(255, 0, 0)
-                    hl.OutlineColor = Color3.fromRGB(255, 255, 255)
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop -- ESSA LINHA FAZ VER ATRAVÉS DA PAREDE
-                    hl.Parent = p.Character
-                end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            -- Controle do ESP
+            local box = p.Character:FindFirstChild("ESP_Box")
+            if _ESP then
+                if not box then CreateBox(p) end
+            else
+                if box then box:Destroy() end
             end
         end
     end
 
-    -- Lógica do Aimbot (Agora foca em qualquer um)
-    if aimbotAtivo then
-        local alvo = nil
-        local menorDistancia = math.huge -- Procura o alvo em qualquer distância na tela
-        
+    -- Lógica do Aimbot (Mais forte)
+    if _AIM then
+        local target = nil
+        local dist = 500 -- Aumentei o alcance
         for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character:FindFirstChild("Humanoid") and p.Character.Humanoid.Health > 0 then
-                local cabeca = p.Character.Head
-                local posNaTela, taNaTela = Camera:WorldToViewportPoint(cabeca.Position)
-                
-                if taNaTela then
-                    local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                    local dist = (Vector2.new(posNaTela.X, posNaTela.Y) - centroTela).Magnitude
-                    
-                    if dist < menorDistancia then
-                        menorDistancia = dist
-                        alvo = p
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Character.Humanoid.Health > 0 then
+                local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+                if onScreen then
+                    local mDist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    if mDist < dist then
+                        dist = mDist
+                        target = p
                     end
                 end
             end
         end
-        
-        -- Move a câmera para a cabeça do alvo mais próximo do centro da tela
-        if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
-            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, alvo.Character.Head.Position)
+        if target then
+            -- Trava a câmera na cabeça usando lookAt (Mais preciso)
+            Camera.CFrame = CFrame.lookAt(Camera.CFrame.Position, target.Character.Head.Position)
         end
     end
 end)
