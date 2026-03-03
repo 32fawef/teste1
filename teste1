@@ -1,151 +1,78 @@
 -- ============================================================
--- ZURION PRO v7 MOBILE - DEFINITIVO
--- Aimbot Suave + ESP Highlight + Speed Multiplier
+-- ZURION PRO v8 - SILENT AIM & FOV EDITION
+-- A câmera NÃO trava. O alvo é selecionado pelo círculo.
 -- ============================================================
 
-local Players          = game:GetService("Players")
-local RunService       = game:GetService("RunService")
-local LocalPlayer      = Players.LocalPlayer
-local Camera           = workspace.CurrentCamera
-local SPEED_BASE       = 16
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+local Mouse = LocalPlayer:GetMouse()
 
--- ============================================================
--- GUI - INTERFACE VISUAL
--- ============================================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionV7_Final"
-ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 999
+-- Configurações
+local Settings = {
+    Aimbot = false,
+    FOV = 150, -- Tamanho do círculo
+    Smoothness = 0.1, -- Suavidade (0.1 a 1)
+    ShowFOV = true
+}
 
--- Tenta colocar no CoreGui para esconder de prints/logs
-local sucesso, erro = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
-if not sucesso then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+-- Criar Círculo de FOV (Visual)
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Thickness = 2
+FOVCircle.Color = Color3.fromRGB(255, 0, 0)
+FOVCircle.Filled = false
+FOVCircle.Transparency = 1
+FOVCircle.Visible = Settings.ShowFOV
 
--- Botão para reabrir o menu
-local OpenBtn = Instance.new("TextButton")
-OpenBtn.Size = UDim2.new(0, 80, 0, 35)
-OpenBtn.Position = UDim2.new(0, 10, 0.5, 0)
-OpenBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
-OpenBtn.Text = "ABRIR"
-OpenBtn.TextColor3 = Color3.new(1, 1, 1)
-OpenBtn.Visible = false
-OpenBtn.Parent = ScreenGui
-Instance.new("UICorner", OpenBtn)
-
--- Painel Principal
-local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 220, 0, 300)
-Main.Position = UDim2.new(0.5, -110, 0.5, -150)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+-- Interface (Compacta)
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer.PlayerGui)
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 180, 0, 120)
+Main.Position = UDim2.new(0.05, 0, 0.4, 0)
+Main.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 Main.Active = true
 Main.Draggable = true
-Main.Parent = ScreenGui
-Instance.new("UICorner", Main)
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 0, 35)
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "ZURION V8 SILENT"
 Title.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
-Title.Text = "⚡ ZURION PRO v7"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.Font = Enum.Font.GothamBold
-Title.Parent = Main
-Instance.new("UICorner", Title)
+Title.TextColor3 = Color3.new(1,1,1)
 
-local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -35, 0, 2.5)
-CloseBtn.Text = "X"
-CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.Parent = Title
-Instance.new("UICorner", CloseBtn)
+local AimBtn = Instance.new("TextButton", Main)
+AimBtn.Size = UDim2.new(0.9, 0, 0, 35)
+AimBtn.Position = UDim2.new(0.05, 0, 0.35, 0)
+AimBtn.Text = "AIMBOT: OFF"
+AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+AimBtn.TextColor3 = Color3.new(1,1,1)
 
--- Container de Botões
-local C = Instance.new("Frame")
-C.Size = UDim2.new(1, 0, 1, -40)
-C.Position = UDim2.new(0, 0, 0, 40)
-C.BackgroundTransparency = 1
-C.Parent = Main
+local EspBtn = Instance.new("TextButton", Main)
+EspBtn.Size = UDim2.new(0.9, 0, 0, 35)
+EspBtn.Position = UDim2.new(0.05, 0, 0.7, 0)
+EspBtn.Text = "ESP: OFF"
+EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
+EspBtn.TextColor3 = Color3.new(1,1,1)
 
-local function makeBtn(text, pos)
-    local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0.9, 0, 0, 40)
-    b.Position = pos
-    b.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-    b.Text = text
-    b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold
-    b.Parent = C
-    Instance.new("UICorner", b)
-    return b
-end
+local _ESP = false
 
-local EspBtn   = makeBtn("ESP: OFF", UDim2.new(0.05, 0, 0.05, 0))
-local AimBtn   = makeBtn("AIMBOT: OFF", UDim2.new(0.05, 0, 0.22, 0))
-local SpeedBtn = makeBtn("SPEED: OFF", UDim2.new(0.05, 0, 0.39, 0))
+-- Alternar Estados
+AimBtn.MouseButton1Click:Connect(function()
+    Settings.Aimbot = not Settings.Aimbot
+    AimBtn.Text = Settings.Aimbot and "AIMBOT: ON" or "AIMBOT: OFF"
+    AimBtn.BackgroundColor3 = Settings.Aimbot and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(100, 0, 0)
+end)
 
-local SpeedLbl = Instance.new("TextLabel", C)
-SpeedLbl.Size = UDim2.new(1, 0, 0, 20)
-SpeedLbl.Position = UDim2.new(0, 0, 0.58, 0)
-SpeedLbl.Text = "Velocidade: 5"
-SpeedLbl.TextColor3 = Color3.new(1, 1, 1)
-SpeedLbl.BackgroundTransparency = 1
-
-local MinusBtn = makeBtn("-", UDim2.new(0.05, 0, 0.68, 0))
-MinusBtn.Size = UDim2.new(0.4, 0, 0, 35)
-local PlusBtn  = makeBtn("+", UDim2.new(0.55, 0, 0.68, 0))
-PlusBtn.Size = UDim2.new(0.4, 0, 0, 35)
-
--- ============================================================
--- LÓGICA DE FUNCIONAMENTO
--- ============================================================
-local _ESP, _AIM, _SPEED = false, false, false
-local speedLevel = 5
-local EspFolder = Instance.new("Folder", workspace)
-
--- Função para trocar cor/texto dos botões
-local function toggleBtn(btn, state, text)
-    btn.Text = text .. (state and ": ON" or ": OFF")
-    btn.BackgroundColor3 = state and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(100, 0, 0)
-end
-
--- Fechar/Abrir
-CloseBtn.MouseButton1Click:Connect(function() Main.Visible = false; OpenBtn.Visible = true end)
-OpenBtn.MouseButton1Click:Connect(function() Main.Visible = true; OpenBtn.Visible = false end)
-
--- Funções de Botão
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
-    toggleBtn(EspBtn, _ESP, "ESP")
-    if not _ESP then EspFolder:ClearAllChildren() end
+    EspBtn.Text = _ESP and "ESP: ON" or "ESP: OFF"
+    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(0, 120, 0) or Color3.fromRGB(100, 0, 0)
 end)
 
-AimBtn.MouseButton1Click:Connect(function()
-    _AIM = not _AIM
-    toggleBtn(AimBtn, _AIM, "AIMBOT")
-end)
-
-SpeedBtn.MouseButton1Click:Connect(function()
-    _SPEED = not _SPEED
-    toggleBtn(SpeedBtn, _SPEED, "SPEED")
-end)
-
-PlusBtn.MouseButton1Click:Connect(function()
-    speedLevel = math.min(15, speedLevel + 1)
-    SpeedLbl.Text = "Velocidade: " .. speedLevel
-end)
-
-MinusBtn.MouseButton1Click:Connect(function()
-    speedLevel = math.max(1, speedLevel - 1)
-    SpeedLbl.Text = "Velocidade: " .. speedLevel
-end)
-
--- ============================================================
--- SISTEMA DE BUSCA DE ALVO
--- ============================================================
-local function getClosestPlayer()
-    local target, shortestDist = nil, 600 -- Raio de alcance
-    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+-- Função para achar alvo dentro do Círculo
+local function GetClosestInFOV()
+    local target = nil
+    local dist = Settings.FOV
 
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
@@ -153,9 +80,9 @@ local function getClosestPlayer()
             if hum and hum.Health > 0 then
                 local pos, onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
                 if onScreen then
-                    local dist = (Vector2.new(pos.X, pos.Y) - screenCenter).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
+                    local mouseDist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    if mouseDist < dist then
+                        dist = mouseDist
                         target = p
                     end
                 end
@@ -165,43 +92,43 @@ local function getClosestPlayer()
     return target
 end
 
--- ============================================================
--- LOOP PRINCIPAL (RENDER STEPPED)
--- ============================================================
+-- Loop de Renderização
 RunService.RenderStepped:Connect(function()
-    -- ESP Logic
-    if _ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                local id = "HL_" .. p.Name
-                if not EspFolder:FindFirstChild(id) then
-                    local hl = Instance.new("Highlight")
-                    hl.Name = id
-                    hl.Adornee = p.Character
-                    hl.FillColor = Color3.new(1, 0, 0)
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    hl.Parent = EspFolder
-                end
+    -- Atualizar Círculo
+    FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    FOVCircle.Radius = Settings.FOV
+    FOVCircle.Visible = Settings.Aimbot
+
+    -- Aimbot Suave (Não trava a câmera, apenas ajuda a focar)
+    if Settings.Aimbot then
+        local target = GetClosestInFOV()
+        if target and target.Character:FindFirstChild("HumanoidRootPart") then
+            local targetPos = Camera:WorldToViewportPoint(target.Character.HumanoidRootPart.Position)
+            local mousePos = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+            
+            -- Move a câmera sutilmente em direção ao alvo se ele estiver no FOV
+            local moveX = (targetPos.X - mousePos.X) * Settings.Smoothness
+            local moveY = (targetPos.Y - mousePos.Y) * Settings.Smoothness
+            
+            -- Em mobile, usamos isso para rotacionar levemente
+            if targetPos then
+                Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Character.HumanoidRootPart.Position), Settings.Smoothness)
             end
         end
     end
 
-    -- AIMBOT Logic
-    if _AIM then
-        local target = getClosestPlayer()
-        if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
-            local lookAtPos = target.Character.HumanoidRootPart.Position
-            -- Interpolação suave para não bugar a câmera
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, lookAtPos)
+    -- ESP Simples (Box)
+    if _ESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+                local box = p.Character:FindFirstChild("SelectionBox")
+                if not box then
+                    box = Instance.new("SelectionBox", p.Character)
+                    box.Adornee = p.Character
+                    box.AlwaysOnTop = true
+                    box.Color3 = Color3.new(1, 0, 0)
+                end
+            end
         end
     end
-
-    -- SPEED Logic
-    if _SPEED and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = SPEED_BASE + (speedLevel * 10)
-    elseif not _SPEED and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = SPEED_BASE
-    end
 end)
-
-print("⚡ ZURION PRO v7 CARREGADO COM SUCESSO!")
