@@ -1,13 +1,20 @@
+-- ============================================================
+-- ZURION V2 - ESP + AIMBOT CORRIGIDO (SEM BUG DE MIRA)
+-- ============================================================
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+local VIM = game:GetService("VirtualInputManager")
 
-local AIM_FOV = 300
-local AIM_KEY = Enum.KeyCode.Q
+local AIM_FOV    = 300   -- Raio em pixels
+local AIM_SPEED  = 8     -- Velocidade: maior = mais rápido (1-20)
+local AIM_KEY    = Enum.KeyCode.Q
 
+-- ============================================================
 -- GUI
+-- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZurionV2"
 ScreenGui.ResetOnSpawn = false
@@ -85,12 +92,16 @@ AimBtn.TextSize = 13
 AimBtn.Parent = Content
 Instance.new("UICorner", AimBtn).CornerRadius = UDim.new(0, 6)
 
--- Estado
+-- ============================================================
+-- ESTADO
+-- ============================================================
 local _ESP = false
 local _AIM = false
 local minimizado = false
 
--- ESP com Highlight
+-- ============================================================
+-- ESP COM HIGHLIGHT (ATRAVESSA PAREDE)
+-- ============================================================
 local EspFolder = Instance.new("Folder")
 EspFolder.Name = "ESP_Highlights"
 EspFolder.Parent = workspace
@@ -112,29 +123,9 @@ local function aplicarHighlight(character, id)
     hl.Parent = EspFolder
 end
 
--- Botões
-EspBtn.MouseButton1Click:Connect(function()
-    _ESP = not _ESP
-    EspBtn.Text = _ESP and "ESP: ON ✔" or "ESP: OFF"
-    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
-    if not _ESP then limparESP() end
-end)
-
-AimBtn.MouseButton1Click:Connect(function()
-    _AIM = not _AIM
-    AimBtn.Text = _AIM and "AIMBOT: ON ✔  [Q]" or "AIMBOT: OFF  [Q]"
-    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
-    if not _AIM then Camera.CameraType = Enum.CameraType.Custom end
-end)
-
-MinBtn.MouseButton1Click:Connect(function()
-    minimizado = not minimizado
-    Content.Visible = not minimizado
-    MainFrame.Size = minimizado and UDim2.new(0, 200, 0, 30) or UDim2.new(0, 200, 0, 130)
-    MinBtn.Text = minimizado and "+" or "—"
-end)
-
--- Aimbot: encontra alvo mais próximo do centro
+-- ============================================================
+-- AIMBOT: ENCONTRA ALVO MAIS PRÓXIMO DO CENTRO
+-- ============================================================
 local function getMelhorAlvo()
     local melhor, menorDist = nil, AIM_FOV
     local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -154,9 +145,35 @@ local function getMelhorAlvo()
     return melhor
 end
 
--- Loop principal
+-- ============================================================
+-- BOTÕES
+-- ============================================================
+EspBtn.MouseButton1Click:Connect(function()
+    _ESP = not _ESP
+    EspBtn.Text = _ESP and "ESP: ON ✔" or "ESP: OFF"
+    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    if not _ESP then limparESP() end
+end)
+
+AimBtn.MouseButton1Click:Connect(function()
+    _AIM = not _AIM
+    AimBtn.Text = _AIM and "AIMBOT: ON ✔  [Q]" or "AIMBOT: OFF  [Q]"
+    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+end)
+
+MinBtn.MouseButton1Click:Connect(function()
+    minimizado = not minimizado
+    Content.Visible = not minimizado
+    MainFrame.Size = minimizado and UDim2.new(0, 200, 0, 30) or UDim2.new(0, 200, 0, 130)
+    MinBtn.Text = minimizado and "+" or "—"
+end)
+
+-- ============================================================
+-- LOOP PRINCIPAL
+-- ============================================================
 RunService.RenderStepped:Connect(function()
-    -- ESP
+
+    -- === ESP ===
     if _ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
@@ -174,18 +191,31 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- AIMBOT
+    -- === AIMBOT ===
+    -- Usa VirtualInputManager para mover o mouse em direção ao alvo
+    -- Isso NÃO trava a câmera nem buga a mira do jogador
     if _AIM and UserInputService:IsKeyDown(AIM_KEY) then
         local alvo = getMelhorAlvo()
         if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
-            Camera.CameraType = Enum.CameraType.Scriptable
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, alvo.Character.Head.Position)
-        else
-            Camera.CameraType = Enum.CameraType.Custom
-        end
-    elseif _AIM then
-        if Camera.CameraType == Enum.CameraType.Scriptable then
-            Camera.CameraType = Enum.CameraType.Custom
+            local head = alvo.Character.Head
+            local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if onScreen then
+                local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                local alvoPos = Vector2.new(sp.X, sp.Y)
+                local delta = alvoPos - centro
+
+                -- Move o mouse em direção ao alvo (simula movimento real do mouse)
+                -- AIM_SPEED controla quantos pixels por frame se move
+                local moveX = math.clamp(delta.X, -AIM_SPEED * 10, AIM_SPEED * 10)
+                local moveY = math.clamp(delta.Y, -AIM_SPEED * 10, AIM_SPEED * 10)
+
+                VIM:SendMouseMoveEvent(
+                    Camera.ViewportSize.X / 2 + moveX,
+                    Camera.ViewportSize.Y / 2 + moveY,
+                    false,
+                    game
+                )
+            end
         end
     end
 end)
