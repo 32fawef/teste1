@@ -1,131 +1,97 @@
 -- ============================================================
--- ZURION V3 - ESP + AIMBOT REAL + SPEED
+-- ZURION PRO v4 - AIMBOT PROFISSIONAL + SPEED HACK
+-- Técnicas: Lerp Smoothing, Motion Prediction, Wallcheck,
+--           Randomization, WalkSpeed + CFrame Bypass
 -- ============================================================
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
-local AIM_KEY = Enum.KeyCode.Q  -- Segure Q para ativar aimbot
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local LocalPlayer    = Players.LocalPlayer
+local Camera         = workspace.CurrentCamera
+
+-- ============================================================
+-- CONFIGURAÇÕES
+-- ============================================================
+local CFG = {
+    -- AIMBOT
+    AIM_KEY       = Enum.KeyCode.Q,   -- Tecla para ativar
+    AIM_FOV       = 600,              -- Raio de detecção (pixels)
+    AIM_SMOOTH    = 0.18,             -- Suavidade: 0.05=lento, 1.0=snap
+    AIM_BONE      = "Head",           -- Osso alvo: "Head" ou "HumanoidRootPart"
+    AIM_PREDICT   = true,             -- Ativar predição de movimento
+    AIM_WALLCHECK = true,             -- Não mirar através de paredes
+    AIM_RANDOM    = 0.4,              -- Ruído humano (0=robô, 2=muito ruído)
+
+    -- SPEED
+    SPEED_LEVEL   = 5,                -- Nível 1-10
+    SPEED_BASE    = 16,               -- WalkSpeed padrão do Roblox
+    SPEED_CFRAME  = false,            -- Usar CFrame bypass (mais difícil de detectar)
+    SPEED_CFRAME_DIST = 0.8,          -- Distância por teleporte (metros)
+}
 
 -- ============================================================
 -- GUI
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionV3"
+ScreenGui.Name = "ZurionPro"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
-local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 220, 0, 220)
-MainFrame.Position = UDim2.new(0, 20, 0, 20)
-MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
-MainFrame.BorderSizePixel = 0
-MainFrame.Active = true
-MainFrame.Draggable = true
-MainFrame.Parent = ScreenGui
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+local function makeFrame(parent, size, pos, color, radius)
+    local f = Instance.new("Frame")
+    f.Size = size; f.Position = pos
+    f.BackgroundColor3 = color; f.BorderSizePixel = 0
+    f.Parent = parent
+    if radius then Instance.new("UICorner", f).CornerRadius = UDim.new(0, radius) end
+    return f
+end
 
-local TitleBar = Instance.new("Frame")
-TitleBar.Size = UDim2.new(1, 0, 0, 30)
-TitleBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-TitleBar.BorderSizePixel = 0
-TitleBar.Parent = MainFrame
-Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 8)
+local function makeBtn(parent, size, pos, color, text, fontSize)
+    local b = Instance.new("TextButton")
+    b.Size = size; b.Position = pos
+    b.BackgroundColor3 = color; b.BorderSizePixel = 0
+    b.Text = text; b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold; b.TextSize = fontSize or 13
+    b.Parent = parent
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 6)
+    return b
+end
 
-local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, 0, 1, 0)
-Title.BackgroundTransparency = 1
-Title.Text = "⚡ ZURION V3"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.TextXAlignment = Enum.TextXAlignment.Center
-Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
-Title.Parent = TitleBar
+local function makeLabel(parent, size, pos, text, fontSize)
+    local l = Instance.new("TextLabel")
+    l.Size = size; l.Position = pos
+    l.BackgroundTransparency = 1; l.Text = text
+    l.TextColor3 = Color3.new(1,1,1); l.Font = Enum.Font.Gotham
+    l.TextSize = fontSize or 12; l.Parent = parent
+    return l
+end
 
-local Content = Instance.new("Frame")
-Content.Size = UDim2.new(1, 0, 1, -30)
-Content.Position = UDim2.new(0, 0, 0, 30)
-Content.BackgroundTransparency = 1
-Content.Parent = MainFrame
+local Main = makeFrame(ScreenGui, UDim2.new(0,230,0,280), UDim2.new(0,20,0,20),
+    Color3.fromRGB(10,10,10), 10)
+Main.Active = true; Main.Draggable = true
 
--- Botão ESP
-local EspBtn = Instance.new("TextButton")
-EspBtn.Size = UDim2.new(1, -16, 0, 36)
-EspBtn.Position = UDim2.new(0, 8, 0, 8)
-EspBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-EspBtn.BorderSizePixel = 0
-EspBtn.Text = "ESP: OFF"
-EspBtn.TextColor3 = Color3.new(1, 1, 1)
-EspBtn.Font = Enum.Font.GothamBold
-EspBtn.TextSize = 13
-EspBtn.Parent = Content
-Instance.new("UICorner", EspBtn).CornerRadius = UDim.new(0, 6)
+local TBar = makeFrame(Main, UDim2.new(1,0,0,30), UDim2.new(0,0,0,0),
+    Color3.fromRGB(160,0,0), 8)
+makeLabel(TBar, UDim2.new(1,0,1,0), UDim2.new(0,0,0,0), "⚡ ZURION PRO v4", 14)
 
--- Botão AIMBOT
-local AimBtn = Instance.new("TextButton")
-AimBtn.Size = UDim2.new(1, -16, 0, 36)
-AimBtn.Position = UDim2.new(0, 8, 0, 52)
-AimBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-AimBtn.BorderSizePixel = 0
-AimBtn.Text = "AIMBOT: OFF  [Q]"
-AimBtn.TextColor3 = Color3.new(1, 1, 1)
-AimBtn.Font = Enum.Font.GothamBold
-AimBtn.TextSize = 13
-AimBtn.Parent = Content
-Instance.new("UICorner", AimBtn).CornerRadius = UDim.new(0, 6)
+local C = makeFrame(Main, UDim2.new(1,0,1,-30), UDim2.new(0,0,0,30),
+    Color3.fromRGB(10,10,10), 0)
 
--- Botão SPEED
-local SpeedBtn = Instance.new("TextButton")
-SpeedBtn.Size = UDim2.new(1, -16, 0, 36)
-SpeedBtn.Position = UDim2.new(0, 8, 0, 96)
-SpeedBtn.BackgroundColor3 = Color3.fromRGB(100, 0, 0)
-SpeedBtn.BorderSizePixel = 0
-SpeedBtn.Text = "SPEED: OFF"
-SpeedBtn.TextColor3 = Color3.new(1, 1, 1)
-SpeedBtn.Font = Enum.Font.GothamBold
-SpeedBtn.TextSize = 13
-SpeedBtn.Parent = Content
-Instance.new("UICorner", SpeedBtn).CornerRadius = UDim.new(0, 6)
+local EspBtn   = makeBtn(C, UDim2.new(1,-16,0,34), UDim2.new(0,8,0,8),   Color3.fromRGB(100,0,0), "ESP: OFF")
+local AimBtn   = makeBtn(C, UDim2.new(1,-16,0,34), UDim2.new(0,8,0,50),  Color3.fromRGB(100,0,0), "AIMBOT: OFF  [Q]")
+local SpeedBtn = makeBtn(C, UDim2.new(1,-16,0,34), UDim2.new(0,8,0,92),  Color3.fromRGB(100,0,0), "SPEED: OFF")
+local CFrameBtn= makeBtn(C, UDim2.new(1,-16,0,28), UDim2.new(0,8,0,134), Color3.fromRGB(50,50,50), "Modo: WalkSpeed", 11)
 
--- Label do nível de speed
-local SpeedLabel = Instance.new("TextLabel")
-SpeedLabel.Size = UDim2.new(1, -16, 0, 20)
-SpeedLabel.Position = UDim2.new(0, 8, 0, 138)
-SpeedLabel.BackgroundTransparency = 1
-SpeedLabel.Text = "Velocidade: 5"
-SpeedLabel.TextColor3 = Color3.new(1, 1, 1)
-SpeedLabel.Font = Enum.Font.Gotham
-SpeedLabel.TextSize = 12
-SpeedLabel.Parent = Content
+local SpeedLbl = makeLabel(C, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,170), "Velocidade: 5  (nível 5/10)", 11)
+local MinusBtn = makeBtn(C, UDim2.new(0,60,0,28), UDim2.new(0,8,0,192),   Color3.fromRGB(50,50,50), "  −  ", 16)
+local PlusBtn  = makeBtn(C, UDim2.new(0,60,0,28), UDim2.new(1,-68,0,192), Color3.fromRGB(50,50,50), "  +  ", 16)
 
--- Botões - e + para speed
-local MinusBtn = Instance.new("TextButton")
-MinusBtn.Size = UDim2.new(0, 50, 0, 28)
-MinusBtn.Position = UDim2.new(0, 8, 0, 162)
-MinusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-MinusBtn.BorderSizePixel = 0
-MinusBtn.Text = "  -  "
-MinusBtn.TextColor3 = Color3.new(1, 1, 1)
-MinusBtn.Font = Enum.Font.GothamBold
-MinusBtn.TextSize = 16
-MinusBtn.Parent = Content
-Instance.new("UICorner", MinusBtn).CornerRadius = UDim.new(0, 6)
-
-local PlusBtn = Instance.new("TextButton")
-PlusBtn.Size = UDim2.new(0, 50, 0, 28)
-PlusBtn.Position = UDim2.new(1, -58, 0, 162)
-PlusBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-PlusBtn.BorderSizePixel = 0
-PlusBtn.Text = "  +  "
-PlusBtn.TextColor3 = Color3.new(1, 1, 1)
-PlusBtn.Font = Enum.Font.GothamBold
-PlusBtn.TextSize = 16
-PlusBtn.Parent = Content
-Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 6)
+local SmoothLbl = makeLabel(C, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,228), "Smooth: 18%  (Lerp)", 11)
+local SMinBtn   = makeBtn(C, UDim2.new(0,60,0,28), UDim2.new(0,8,0,246),   Color3.fromRGB(50,50,50), "  −  ", 16)
+local SPlusBtn  = makeBtn(C, UDim2.new(0,60,0,28), UDim2.new(1,-68,0,246), Color3.fromRGB(50,50,50), "  +  ", 16)
 
 -- ============================================================
 -- ESTADO
@@ -133,14 +99,13 @@ Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 6)
 local _ESP   = false
 local _AIM   = false
 local _SPEED = false
-local speedLevel = 5  -- 1 a 10
-local speedBase = 16  -- velocidade padrão do Roblox
+local aiming = false
 
 -- ============================================================
--- ESP COM HIGHLIGHT
+-- ESP COM HIGHLIGHT (ATRAVESSA PAREDE)
 -- ============================================================
 local EspFolder = Instance.new("Folder")
-EspFolder.Name = "ESP_Highlights"
+EspFolder.Name = "ESP_Folder"
 EspFolder.Parent = workspace
 
 local function limparESP()
@@ -150,31 +115,50 @@ end
 local function aplicarHighlight(character, id)
     if EspFolder:FindFirstChild(id) then return end
     local hl = Instance.new("Highlight")
-    hl.Name = id
-    hl.Adornee = character
-    hl.FillColor = Color3.new(1, 0, 0)
-    hl.OutlineColor = Color3.new(1, 1, 1)
-    hl.FillTransparency = 0.5
-    hl.OutlineTransparency = 0
+    hl.Name = id; hl.Adornee = character
+    hl.FillColor = Color3.new(1,0,0); hl.OutlineColor = Color3.new(1,1,1)
+    hl.FillTransparency = 0.5; hl.OutlineTransparency = 0
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
     hl.Parent = EspFolder
+end
+
+-- ============================================================
+-- WALLCHECK: Raio invisível para checar linha de visão
+-- ============================================================
+local function temLinhaDeVisao(targetPos)
+    local origin = Camera.CFrame.Position
+    local direction = (targetPos - origin)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {LocalPlayer.Character, workspace.Terrain}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    local result = workspace:Raycast(origin, direction, rayParams)
+    -- Se o raio não bateu em nada, ou bateu muito perto do alvo = linha de visão livre
+    if not result then return true end
+    local hitDist = (result.Position - origin).Magnitude
+    local totalDist = direction.Magnitude
+    return hitDist >= totalDist * 0.85
 end
 
 -- ============================================================
 -- AIMBOT: ENCONTRA ALVO MAIS PRÓXIMO DO CENTRO
 -- ============================================================
 local function getMelhorAlvo()
-    local melhor, menorDist = nil, math.huge
-    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local melhor, menorDist = nil, CFG.AIM_FOV
+    local centro = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
     for _, p in pairs(Players:GetPlayers()) do
         if p ~= LocalPlayer and p.Character then
-            local head = p.Character:FindFirstChild("Head")
+            local bone = p.Character:FindFirstChild(CFG.AIM_BONE)
             local hum  = p.Character:FindFirstChild("Humanoid")
-            if head and hum and hum.Health > 0 then
-                local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
+            if bone and hum and hum.Health > 0 then
+                local sp, onScreen = Camera:WorldToViewportPoint(bone.Position)
                 if onScreen then
                     local d = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
-                    if d < menorDist then menorDist = d; melhor = p end
+                    if d < menorDist then
+                        -- Wallcheck opcional
+                        if not CFG.AIM_WALLCHECK or temLinhaDeVisao(bone.Position) then
+                            menorDist = d; melhor = p
+                        end
+                    end
                 end
             end
         end
@@ -183,20 +167,81 @@ local function getMelhorAlvo()
 end
 
 -- ============================================================
--- CONTROLE DO CAMERATYPE (só muda quando estado muda)
+-- PREDIÇÃO DE MOVIMENTO (Motion Prediction)
+-- Calcula onde o alvo estará baseado na velocidade atual
 -- ============================================================
-local aiming = false
+local lastPositions = {}
 
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-    if gameProcessed then return end
-    if input.KeyCode == AIM_KEY and _AIM then
+local function getPosicaoPredita(player)
+    local char = player.Character
+    if not char then return nil end
+    local bone = char:FindFirstChild(CFG.AIM_BONE)
+    if not bone then return nil end
+
+    local currentPos = bone.Position
+    local uid = player.UserId
+
+    if not CFG.AIM_PREDICT then return currentPos end
+
+    -- Calcula velocidade baseada na posição anterior
+    local predicted = currentPos
+    if lastPositions[uid] then
+        local velocity = currentPos - lastPositions[uid]
+        -- Projeta a posição para o próximo frame (compensação de latência)
+        local pingFactor = 2.5  -- Ajuste baseado no ping médio
+        predicted = currentPos + velocity * pingFactor
+    end
+    lastPositions[uid] = currentPos
+    return predicted
+end
+
+-- ============================================================
+-- SPEED HACK
+-- ============================================================
+local function getWalkSpeed()
+    return CFG.SPEED_BASE + CFG.SPEED_LEVEL * 14
+end
+
+local function aplicarSpeed()
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if hum then hum.WalkSpeed = _SPEED and getWalkSpeed() or CFG.SPEED_BASE end
+end
+
+-- CFrame Bypass: teleportes pequenos e rápidos
+local lastCFrameTime = 0
+local function cframeBurst(dt)
+    if not _SPEED or not CFG.SPEED_CFRAME then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local hum = char:FindFirstChild("Humanoid")
+    if not hum or hum.MoveDirection.Magnitude < 0.1 then return end
+
+    lastCFrameTime = lastCFrameTime + dt
+    if lastCFrameTime < 0.016 then return end  -- ~60fps
+    lastCFrameTime = 0
+
+    local dir = hum.MoveDirection
+    local dist = CFG.SPEED_CFRAME_DIST * (CFG.SPEED_LEVEL / 5)
+    hrp.CFrame = hrp.CFrame + dir * dist
+end
+
+-- ============================================================
+-- CONTROLE DO AIMBOT (InputBegan/Ended para não bugar câmera)
+-- ============================================================
+UserInputService.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == CFG.AIM_KEY and _AIM then
         aiming = true
         Camera.CameraType = Enum.CameraType.Scriptable
     end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
-    if input.KeyCode == AIM_KEY then
+    if input.KeyCode == CFG.AIM_KEY then
         aiming = false
         Camera.CameraType = Enum.CameraType.Custom
     end
@@ -205,17 +250,20 @@ end)
 -- ============================================================
 -- BOTÕES
 -- ============================================================
+local function setBtn(btn, state, onText, offText)
+    btn.Text = state and onText or offText
+    btn.BackgroundColor3 = state and Color3.fromRGB(0,140,0) or Color3.fromRGB(100,0,0)
+end
+
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
-    EspBtn.Text = _ESP and "ESP: ON ✔" or "ESP: OFF"
-    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    setBtn(EspBtn, _ESP, "ESP: ON ✔", "ESP: OFF")
     if not _ESP then limparESP() end
 end)
 
 AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
-    AimBtn.Text = _AIM and "AIMBOT: ON ✔  [Q]" or "AIMBOT: OFF  [Q]"
-    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    setBtn(AimBtn, _AIM, "AIMBOT: ON ✔  [Q]", "AIMBOT: OFF  [Q]")
     if not _AIM then
         aiming = false
         Camera.CameraType = Enum.CameraType.Custom
@@ -224,36 +272,45 @@ end)
 
 SpeedBtn.MouseButton1Click:Connect(function()
     _SPEED = not _SPEED
-    SpeedBtn.Text = _SPEED and "SPEED: ON ✔" or "SPEED: OFF"
-    SpeedBtn.BackgroundColor3 = _SPEED and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
-    local char = LocalPlayer.Character
-    if char then
-        local hum = char:FindFirstChild("Humanoid")
-        if hum then
-            hum.WalkSpeed = _SPEED and (speedBase + speedLevel * 14) or speedBase
-        end
-    end
+    setBtn(SpeedBtn, _SPEED, "SPEED: ON ✔", "SPEED: OFF")
+    aplicarSpeed()
 end)
 
-local function atualizarSpeed()
-    SpeedLabel.Text = "Velocidade: " .. speedLevel
-    if _SPEED then
-        local char = LocalPlayer.Character
-        if char then
-            local hum = char:FindFirstChild("Humanoid")
-            if hum then hum.WalkSpeed = speedBase + speedLevel * 14 end
-        end
-    end
+CFrameBtn.MouseButton1Click:Connect(function()
+    CFG.SPEED_CFRAME = not CFG.SPEED_CFRAME
+    CFrameBtn.Text = CFG.SPEED_CFRAME and "Modo: CFrame Bypass" or "Modo: WalkSpeed"
+    CFrameBtn.BackgroundColor3 = CFG.SPEED_CFRAME and Color3.fromRGB(0,100,180) or Color3.fromRGB(50,50,50)
+    aplicarSpeed()
+end)
+
+local function atualizarSpeedUI()
+    local ws = getWalkSpeed()
+    SpeedLbl.Text = string.format("Velocidade: %d  (nível %d/10)", ws, CFG.SPEED_LEVEL)
+    if _SPEED then aplicarSpeed() end
 end
 
 MinusBtn.MouseButton1Click:Connect(function()
-    speedLevel = math.max(1, speedLevel - 1)
-    atualizarSpeed()
+    CFG.SPEED_LEVEL = math.max(1, CFG.SPEED_LEVEL - 1)
+    atualizarSpeedUI()
 end)
 
 PlusBtn.MouseButton1Click:Connect(function()
-    speedLevel = math.min(10, speedLevel + 1)
-    atualizarSpeed()
+    CFG.SPEED_LEVEL = math.min(10, CFG.SPEED_LEVEL + 1)
+    atualizarSpeedUI()
+end)
+
+local function atualizarSmoothUI()
+    SmoothLbl.Text = string.format("Smooth: %d%%  (Lerp)", math.floor(CFG.AIM_SMOOTH * 100))
+end
+
+SMinBtn.MouseButton1Click:Connect(function()
+    CFG.AIM_SMOOTH = math.max(0.05, math.floor((CFG.AIM_SMOOTH - 0.05) * 100 + 0.5) / 100)
+    atualizarSmoothUI()
+end)
+
+SPlusBtn.MouseButton1Click:Connect(function()
+    CFG.AIM_SMOOTH = math.min(1.0, math.floor((CFG.AIM_SMOOTH + 0.05) * 100 + 0.5) / 100)
+    atualizarSmoothUI()
 end)
 
 -- Restaura speed ao respawnar
@@ -261,14 +318,14 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     if _SPEED then
         task.wait(0.5)
         local hum = char:WaitForChild("Humanoid")
-        hum.WalkSpeed = speedBase + speedLevel * 14
+        hum.WalkSpeed = getWalkSpeed()
     end
 end)
 
 -- ============================================================
 -- LOOP PRINCIPAL
 -- ============================================================
-RunService.RenderStepped:Connect(function()
+RunService.RenderStepped:Connect(function(dt)
 
     -- === ESP ===
     if _ESP then
@@ -288,15 +345,33 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    -- === AIMBOT: SNAP DIRETO NA CABEÇA ===
+    -- === AIMBOT COM LERP + PREDICTION + RANDOMIZAÇÃO ===
     if aiming and _AIM then
         local alvo = getMelhorAlvo()
-        if alvo and alvo.Character and alvo.Character:FindFirstChild("Head") then
-            local headPos = alvo.Character.Head.Position
-            -- Mantém posição da câmera, só muda para onde ela olha
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, headPos)
+        if alvo then
+            local targetPos = getPosicaoPredita(alvo)
+            if targetPos then
+                -- Adiciona ruído humano (randomização anti-detecção)
+                local noise = CFG.AIM_RANDOM
+                targetPos = targetPos + Vector3.new(
+                    (math.random() - 0.5) * noise,
+                    (math.random() - 0.5) * noise,
+                    (math.random() - 0.5) * noise
+                )
+
+                -- LERP: Interpolação linear suave (simula movimento humano)
+                -- Em vez de pular direto, move CFG.AIM_SMOOTH% em direção ao alvo por frame
+                local currentLook = Camera.CFrame.LookVector
+                local targetLook  = (targetPos - Camera.CFrame.Position).Unit
+                local smoothLook  = currentLook:Lerp(targetLook, CFG.AIM_SMOOTH)
+
+                Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + smoothLook)
+            end
         end
     end
+
+    -- === SPEED HACK (CFrame Bypass) ===
+    cframeBurst(dt)
 end)
 
 LocalPlayer.AncestryChanged:Connect(function()
