@@ -1,67 +1,97 @@
--- CONFIGURAÇÕES DO SISTEMA
-local Settings = {
-    AimbotEnabled = true,
-    TeamCheck = true,
-    FriendCheck = true, -- Não foca em amigos
-    Smoothing = 0.5,    -- Quanto maior, mais "suave" e menos perceptível (0.1 a 1)
-    AimPart = "Head",   -- Parte do corpo alvo
-    FieldOfView = 150   -- Área de alcance do Aimbot
-}
+local ScreenGui = Instance.new("ScreenGui")
+local MainFrame = Instance.new("Frame")
+local Title = Instance.new("TextLabel")
+local ESPBtn = Instance.new("TextButton")
+local AimbotBtn = Instance.new("TextButton")
 
+-- Configurando a Interface
+ScreenGui.Parent = game.CoreGui
+MainFrame.Name = "AuditoriaPanel"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -75)
+MainFrame.Size = UDim2.new(0, 200, 150)
+MainFrame.Active = true
+MainFrame.Draggable = true -- Você pode arrastar o menu
+
+Title.Parent = MainFrame
+Title.Text = "AUDITORIA AZURION"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+Title.TextColor3 = Color3.new(1, 1, 1)
+
+ESPBtn.Parent = MainFrame
+ESPBtn.Text = "Ligar ESP"
+ESPBtn.Position = UDim2.new(0.1, 0, 0.3, 0)
+ESPBtn.Size = UDim2.new(0.8, 0, 0, 30)
+ESPBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+
+AimbotBtn.Parent = MainFrame
+AimbotBtn.Text = "Ligar Aimbot"
+AimbotBtn.Position = UDim2.new(0.1, 0, 0.6, 0)
+AimbotBtn.Size = UDim2.new(0.8, 0, 0, 30)
+AimbotBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+
+-- Variáveis de Controle
+local _ESP = false
+local _Aimbot = false
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Camera = game:GetService("Workspace").CurrentCamera
-local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
 
--- FUNÇÃO PARA FILTRAR ALVOS VÁLIDOS
-local function isTargetValid(player)
-    if not player.Character or not player.Character:FindFirstChild(Settings.AimPart) then return false end
-    if player == LocalPlayer then return false end
-    
-    -- Filtro de Time
-    if Settings.TeamCheck and player.Team == LocalPlayer.Team then return false end
-    
-    -- Filtro de Amigos (Friend Check)
-    if Settings.FriendCheck and LocalPlayer:IsFriendsWith(player.UserId) then return false end
-    
-    return true
-end
-
--- FUNÇÃO PARA PEGAR O JOGADOR MAIS PRÓXIMO DA MIRA (Cursor)
-local function getClosestPlayer()
-    local closestPlayer = nil
-    local shortestDistance = Settings.FieldOfView
-
-    for _, player in pairs(Players:GetPlayers()) do
-        if isTargetValid(player) then
-            local pos, onScreen = Camera:WorldToViewportPoint(player.Character[Settings.AimPart].Position)
-            if onScreen then
-                local distance = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)).Magnitude
-                if distance < shortestDistance then
-                    closestPlayer = player
-                    shortestDistance = distance
+-- FUNÇÃO ESP
+local function updateESP()
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local highlight = p.Character:FindFirstChild("Highlight")
+            if _ESP then
+                if not highlight then
+                    highlight = Instance.new("Highlight", p.Character)
+                    highlight.FillColor = Color3.new(1, 0, 0)
                 end
+                -- Team Check no ESP
+                highlight.Enabled = (p.Team ~= LocalPlayer.Team)
+            else
+                if highlight then highlight:Destroy() end
             end
         end
     end
-    return closestPlayer
 end
 
--- LOOP DE EXECUÇÃO (Render)
-RunService.RenderStepped:Connect(function()
-    if Settings.AimbotEnabled then
-        local target = getClosestPlayer()
-        if target and target.Character:FindFirstChild(Settings.AimPart) then
-            -- Lógica de Aimbot Suave (Smoothing)
-            local targetPos = Camera:WorldToViewportPoint(target.Character[Settings.AimPart].Position)
-            local mousePos = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-            
-            -- Move a câmera suavemente em direção ao alvo
-            local aimAt = Vector2.new(targetPos.X, targetPos.Y)
-            -- Nota: Em ambientes de teste reais, o movimento da câmera é o principal ponto de detecção
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Character[Settings.AimPart].Position)
+-- BOTÕES (LIGAR/DESLIGAR)
+ESPBtn.MouseButton1Click:Connect(function()
+    _ESP = not _ESP
+    ESPBtn.Text = _ESP and "Desligar ESP" or "Ligar ESP"
+    ESPBtn.BackgroundColor3 = _ESP and Color3.new(0, 0.6, 0) or Color3.new(0.8, 0, 0)
+end)
+
+AimbotBtn.MouseButton1Click:Connect(function()
+    _Aimbot = not _Aimbot
+    AimbotBtn.Text = _Aimbot and "Desligar Aimbot" or "Ligar Aimbot"
+    AimbotBtn.BackgroundColor3 = _Aimbot and Color3.new(0, 0.6, 0) or Color3.new(0.8, 0, 0)
+end)
+
+-- LOOP PRINCIPAL
+game:GetService("RunService").RenderStepped:Connect(function()
+    updateESP()
+    
+    if _Aimbot then
+        local closest = nil
+        local dist = 150 -- FOV
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") and p.Team ~= LocalPlayer.Team then
+                local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+                if onScreen then
+                    local mDist = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                    if mDist < dist then
+                        dist = mDist
+                        closest = p
+                    end
+                end
+            end
+        end
+        if closest then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, closest.Character.Head.Position)
         end
     end
 end)
-
-print("Sistema de Auditoria: Aimbot e FriendCheck ativos.")
