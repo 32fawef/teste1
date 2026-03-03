@@ -1,6 +1,8 @@
 -- ============================================================
--- ZURION PRO v8 MOBILE - FOV CIRCLE + SILENT AIM
--- Círculo de FOV vermelho + câmera livre + assistência de mira
+-- ZURION PRO v9 MOBILE
+-- ESP: SelectionBox (atravessa paredes) ← versão antiga que funcionava
+-- FOV: Frame circular no ScreenGui (funciona em qualquer executor)
+-- AIMBOT: Mais forte (Lerp 0.25) + só ativa dentro do FOV
 -- ============================================================
 
 local Players          = game:GetService("Players")
@@ -9,34 +11,58 @@ local LocalPlayer      = Players.LocalPlayer
 local Camera           = workspace.CurrentCamera
 
 local SPEED_BASE = 16
+local FOV_RADIUS = 180  -- Maior por padrão
 
 -- ============================================================
--- FOV CIRCLE (Círculo vermelho no centro da tela)
--- Usa Drawing Library do executor
--- ============================================================
-local FOV_RADIUS = 120  -- Tamanho do círculo (pixels)
-local SMOOTHNESS = 0.1  -- Suavidade do aimbot (0.05 = muito suave, 0.3 = rápido)
-
-local fovCircle = Drawing.new("Circle")
-fovCircle.Visible = false
-fovCircle.Radius = FOV_RADIUS
-fovCircle.Color = Color3.fromRGB(255, 0, 0)
-fovCircle.Thickness = 2
-fovCircle.Filled = false
-fovCircle.NumSides = 64
-
--- ============================================================
--- GUI
+-- GUI PRINCIPAL
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionV8"
+ScreenGui.Name = "ZurionV9"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
+-- ============================================================
+-- CÍRCULO FOV (Frame circular no centro da tela)
+-- Funciona em QUALQUER executor — sem Drawing Library
+-- ============================================================
+local FovFrame = Instance.new("Frame")
+FovFrame.Name = "FovCircle"
+FovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+FovFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+FovFrame.Size = UDim2.new(0, FOV_RADIUS * 2, 0, FOV_RADIUS * 2)
+FovFrame.BackgroundTransparency = 1
+FovFrame.BorderSizePixel = 0
+FovFrame.Visible = false
+FovFrame.Parent = ScreenGui
+
+-- Borda circular vermelha
+local FovStroke = Instance.new("UIStroke")
+FovStroke.Color = Color3.fromRGB(255, 0, 0)
+FovStroke.Thickness = 2.5
+FovStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+FovStroke.Parent = FovFrame
+
+local FovCorner = Instance.new("UICorner")
+FovCorner.CornerRadius = UDim.new(1, 0)  -- 100% = círculo perfeito
+FovCorner.Parent = FovFrame
+
+-- Ponto central (mira)
+local FovDot = Instance.new("Frame")
+FovDot.AnchorPoint = Vector2.new(0.5, 0.5)
+FovDot.Position = UDim2.new(0.5, 0, 0.5, 0)
+FovDot.Size = UDim2.new(0, 6, 0, 6)
+FovDot.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+FovDot.BorderSizePixel = 0
+FovDot.Parent = FovFrame
+Instance.new("UICorner", FovDot).CornerRadius = UDim.new(1, 0)
+
+-- ============================================================
+-- BOTÃO ABRIR
+-- ============================================================
 local OpenBtn = Instance.new("TextButton")
-OpenBtn.Size = UDim2.new(0, 100, 0, 36)
+OpenBtn.Size = UDim2.new(0, 110, 0, 36)
 OpenBtn.Position = UDim2.new(0, 20, 0, 20)
 OpenBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
 OpenBtn.BorderSizePixel = 0
@@ -48,28 +74,46 @@ OpenBtn.Visible = false
 OpenBtn.Parent = ScreenGui
 Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(0, 8)
 
+-- ============================================================
+-- PAINEL PRINCIPAL
+-- ============================================================
 local Main = Instance.new("Frame")
-Main.Size = UDim2.new(0, 240, 0, 300)
+Main.Size = UDim2.new(0, 250, 0, 340)
 Main.Position = UDim2.new(0, 20, 0, 20)
-Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Main.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
 Main.BorderSizePixel = 0
 Main.Active = true
 Main.Draggable = true
 Main.Parent = ScreenGui
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 12)
 
+-- Borda do painel
+local PanelStroke = Instance.new("UIStroke")
+PanelStroke.Color = Color3.fromRGB(160, 0, 0)
+PanelStroke.Thickness = 1.5
+PanelStroke.Parent = Main
+
+-- Barra de título
 local TBar = Instance.new("Frame")
-TBar.Size = UDim2.new(1, 0, 0, 36)
+TBar.Size = UDim2.new(1, 0, 0, 40)
 TBar.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
 TBar.BorderSizePixel = 0
 TBar.Parent = Main
-Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 10)
+Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 12)
+
+-- Fix: cobre os cantos inferiores arredondados da TBar
+local TBarFix = Instance.new("Frame")
+TBarFix.Size = UDim2.new(1, 0, 0.5, 0)
+TBarFix.Position = UDim2.new(0, 0, 0.5, 0)
+TBarFix.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+TBarFix.BorderSizePixel = 0
+TBarFix.Parent = TBar
 
 local TitleLbl = Instance.new("TextLabel")
-TitleLbl.Size = UDim2.new(1, -44, 1, 0)
-TitleLbl.Position = UDim2.new(0, 10, 0, 0)
+TitleLbl.Size = UDim2.new(1, -50, 1, 0)
+TitleLbl.Position = UDim2.new(0, 12, 0, 0)
 TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text = "⚡ ZURION PRO v8"
+TitleLbl.Text = "⚡ ZURION PRO v9"
 TitleLbl.TextColor3 = Color3.new(1, 1, 1)
 TitleLbl.Font = Enum.Font.GothamBold
 TitleLbl.TextSize = 14
@@ -77,55 +121,163 @@ TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 TitleLbl.Parent = TBar
 
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -36, 0, 2)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -36, 0, 5)
 CloseBtn.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
 CloseBtn.BorderSizePixel = 0
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.new(1, 1, 1)
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 15
+CloseBtn.TextSize = 14
 CloseBtn.Parent = TBar
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
+-- Área de conteúdo
 local C = Instance.new("Frame")
-C.Size = UDim2.new(1, 0, 1, -36)
-C.Position = UDim2.new(0, 0, 0, 36)
+C.Size = UDim2.new(1, -16, 1, -50)
+C.Position = UDim2.new(0, 8, 0, 46)
 C.BackgroundTransparency = 1
 C.Parent = Main
 
-local function makeBtn(parent, size, pos, color, text)
+local UIList = Instance.new("UIListLayout")
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 8)
+UIList.Parent = C
+
+-- ============================================================
+-- FUNÇÕES DE CRIAÇÃO DE BOTÕES
+-- ============================================================
+local function makeToggleBtn(parent, text, order)
     local b = Instance.new("TextButton")
-    b.Size = size; b.Position = pos
-    b.BackgroundColor3 = color; b.BorderSizePixel = 0
-    b.Text = text; b.TextColor3 = Color3.new(1, 1, 1)
-    b.Font = Enum.Font.GothamBold; b.TextSize = 14
+    b.Size = UDim2.new(1, 0, 0, 44)
+    b.BackgroundColor3 = Color3.fromRGB(80, 0, 0)
+    b.BorderSizePixel = 0
+    b.Text = text
+    b.TextColor3 = Color3.new(1, 1, 1)
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 14
+    b.LayoutOrder = order
     b.Parent = parent
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    local s = Instance.new("UIStroke")
+    s.Color = Color3.fromRGB(120, 0, 0)
+    s.Thickness = 1
+    s.Parent = b
     return b
 end
 
-local function makeLabel(parent, size, pos, text)
-    local l = Instance.new("TextLabel")
-    l.Size = size; l.Position = pos
-    l.BackgroundTransparency = 1; l.Text = text
-    l.TextColor3 = Color3.new(1, 1, 1); l.Font = Enum.Font.Gotham
-    l.TextSize = 12; l.Parent = parent
-    return l
+local function makeSection(parent, title, order)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 0, 18)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = title
+    lbl.TextColor3 = Color3.fromRGB(200, 200, 200)
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 11
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.LayoutOrder = order
+    lbl.Parent = parent
+    return lbl
 end
 
-local EspBtn   = makeBtn(C, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,8),   Color3.fromRGB(100,0,0), "ESP: OFF")
-local AimBtn   = makeBtn(C, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,56),  Color3.fromRGB(100,0,0), "AIMBOT: OFF")
-local SpeedBtn = makeBtn(C, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,104), Color3.fromRGB(100,0,0), "SPEED: OFF")
+-- ============================================================
+-- BOTÕES PRINCIPAIS
+-- ============================================================
+local EspBtn   = makeToggleBtn(C, "👁  ESP: OFF", 1)
+local AimBtn   = makeToggleBtn(C, "🎯  AIMBOT: OFF", 2)
+local SpeedBtn = makeToggleBtn(C, "⚡  SPEED: OFF", 3)
 
--- Controle de FOV
-local FovLbl   = makeLabel(C, UDim2.new(1,-16,0,16), UDim2.new(0,8,0,152), "FOV: 120px")
-local FovMinus = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(0,8,0,170),   Color3.fromRGB(50,50,50), "  −  ")
-local FovPlus  = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,170), Color3.fromRGB(50,50,50), "  +  ")
+-- Seção FOV
+makeSection(C, "  🔴 FOV (Círculo de Mira)", 4)
 
-local SpeedLbl = makeLabel(C, UDim2.new(1,-16,0,16), UDim2.new(0,8,0,210), "Velocidade: nível 5")
-local MinusBtn = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(0,8,0,228),   Color3.fromRGB(50,50,50), "  −  ")
-local PlusBtn  = makeBtn(C, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,228), Color3.fromRGB(50,50,50), "  +  ")
+local FovRow = Instance.new("Frame")
+FovRow.Size = UDim2.new(1, 0, 0, 44)
+FovRow.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+FovRow.BorderSizePixel = 0
+FovRow.LayoutOrder = 5
+FovRow.Parent = C
+Instance.new("UICorner", FovRow).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", FovRow).Color = Color3.fromRGB(60, 60, 60)
+
+local FovMinus = Instance.new("TextButton")
+FovMinus.Size = UDim2.new(0, 44, 1, -8)
+FovMinus.Position = UDim2.new(0, 4, 0, 4)
+FovMinus.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+FovMinus.BorderSizePixel = 0
+FovMinus.Text = "−"
+FovMinus.TextColor3 = Color3.new(1, 1, 1)
+FovMinus.Font = Enum.Font.GothamBold
+FovMinus.TextSize = 20
+FovMinus.Parent = FovRow
+Instance.new("UICorner", FovMinus).CornerRadius = UDim.new(0, 6)
+
+local FovLbl = Instance.new("TextLabel")
+FovLbl.Size = UDim2.new(1, -100, 1, 0)
+FovLbl.Position = UDim2.new(0, 52, 0, 0)
+FovLbl.BackgroundTransparency = 1
+FovLbl.Text = "FOV: " .. FOV_RADIUS .. "px"
+FovLbl.TextColor3 = Color3.new(1, 1, 1)
+FovLbl.Font = Enum.Font.GothamBold
+FovLbl.TextSize = 13
+FovLbl.Parent = FovRow
+
+local FovPlus = Instance.new("TextButton")
+FovPlus.Size = UDim2.new(0, 44, 1, -8)
+FovPlus.Position = UDim2.new(1, -48, 0, 4)
+FovPlus.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+FovPlus.BorderSizePixel = 0
+FovPlus.Text = "+"
+FovPlus.TextColor3 = Color3.new(1, 1, 1)
+FovPlus.Font = Enum.Font.GothamBold
+FovPlus.TextSize = 20
+FovPlus.Parent = FovRow
+Instance.new("UICorner", FovPlus).CornerRadius = UDim.new(0, 6)
+
+-- Seção Speed
+makeSection(C, "  ⚡ Velocidade", 6)
+
+local SpeedRow = Instance.new("Frame")
+SpeedRow.Size = UDim2.new(1, 0, 0, 44)
+SpeedRow.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+SpeedRow.BorderSizePixel = 0
+SpeedRow.LayoutOrder = 7
+SpeedRow.Parent = C
+Instance.new("UICorner", SpeedRow).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", SpeedRow).Color = Color3.fromRGB(60, 60, 60)
+
+local MinusBtn = Instance.new("TextButton")
+MinusBtn.Size = UDim2.new(0, 44, 1, -8)
+MinusBtn.Position = UDim2.new(0, 4, 0, 4)
+MinusBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+MinusBtn.BorderSizePixel = 0
+MinusBtn.Text = "−"
+MinusBtn.TextColor3 = Color3.new(1, 1, 1)
+MinusBtn.Font = Enum.Font.GothamBold
+MinusBtn.TextSize = 20
+MinusBtn.Parent = SpeedRow
+Instance.new("UICorner", MinusBtn).CornerRadius = UDim.new(0, 6)
+
+local SpeedLbl = Instance.new("TextLabel")
+SpeedLbl.Size = UDim2.new(1, -100, 1, 0)
+SpeedLbl.Position = UDim2.new(0, 52, 0, 0)
+SpeedLbl.BackgroundTransparency = 1
+SpeedLbl.Text = "Nível 5"
+SpeedLbl.TextColor3 = Color3.new(1, 1, 1)
+SpeedLbl.Font = Enum.Font.GothamBold
+SpeedLbl.TextSize = 13
+SpeedLbl.Parent = SpeedRow
+
+local PlusBtn = Instance.new("TextButton")
+PlusBtn.Size = UDim2.new(0, 44, 1, -8)
+PlusBtn.Position = UDim2.new(1, -48, 0, 4)
+PlusBtn.BackgroundColor3 = Color3.fromRGB(160, 0, 0)
+PlusBtn.BorderSizePixel = 0
+PlusBtn.Text = "+"
+PlusBtn.TextColor3 = Color3.new(1, 1, 1)
+PlusBtn.Font = Enum.Font.GothamBold
+PlusBtn.TextSize = 20
+PlusBtn.Parent = SpeedRow
+Instance.new("UICorner", PlusBtn).CornerRadius = UDim.new(0, 6)
 
 -- ============================================================
 -- FECHAR / ABRIR
@@ -149,33 +301,32 @@ local _SPEED    = false
 local speedLevel = 5
 
 -- ============================================================
--- ESP COM HIGHLIGHT
+-- ESP: SelectionBox (versão antiga que atravessa paredes)
 -- ============================================================
-local EspFolder = Instance.new("Folder")
-EspFolder.Name = "ESP_Folder"
-EspFolder.Parent = workspace
-
 local function limparESP()
-    for _, v in pairs(EspFolder:GetChildren()) do v:Destroy() end
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local box = p.Character:FindFirstChild("ZurionESP")
+            if box then box:Destroy() end
+        end
+    end
 end
 
-local function aplicarHighlight(character, id)
-    if EspFolder:FindFirstChild(id) then return end
-    local hl = Instance.new("Highlight")
-    hl.Name = id
-    hl.Adornee = character
-    hl.FillColor = Color3.new(1, 0, 0)
-    hl.OutlineColor = Color3.new(1, 1, 1)
-    hl.FillTransparency = 0.5
-    hl.OutlineTransparency = 0
-    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Parent = EspFolder
+local function aplicarESP(character)
+    if character:FindFirstChild("ZurionESP") then return end
+    local box = Instance.new("SelectionBox")
+    box.Name = "ZurionESP"
+    box.Adornee = character
+    box.Color3 = Color3.new(1, 0, 0)
+    box.LineThickness = 0.05
+    box.SurfaceTransparency = 0.8
+    box.SurfaceColor3 = Color3.new(1, 0, 0)
+    box.AlwaysOnTop = true  -- ATRAVESSA PAREDES
+    box.Parent = character
 end
 
 -- ============================================================
--- AIMBOT v8 - FOV CIRCLE + SILENT AIM (câmera livre)
--- Só ativa quando inimigo está dentro do círculo FOV
--- Câmera NÃO trava — apenas assistência suave
+-- AIMBOT v9 - FOV + câmera livre + mais forte
 -- ============================================================
 local function getMelhorAlvoNoFOV()
     local melhor, menorDist = nil, math.huge
@@ -190,7 +341,6 @@ local function getMelhorAlvoNoFOV()
                 if onScreen then
                     local screenPos = Vector2.new(sp.X, sp.Y)
                     local distFromCentro = (screenPos - centro).Magnitude
-                    -- Só considera alvos DENTRO do círculo FOV
                     if distFromCentro <= FOV_RADIUS and distFromCentro < menorDist then
                         menorDist = distFromCentro
                         melhor = p
@@ -218,11 +368,6 @@ local function aplicarSpeed()
     end
 end
 
-local function atualizarSpeedUI()
-    SpeedLbl.Text = string.format("Velocidade: nível %d  (WalkSpeed %d)", speedLevel, getWalkSpeed())
-    if _SPEED then aplicarSpeed() end
-end
-
 LocalPlayer.CharacterAdded:Connect(function(char)
     if _SPEED then
         task.wait(0.5)
@@ -232,52 +377,55 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 
 -- ============================================================
--- BOTÕES
+-- BOTÕES TOGGLE
 -- ============================================================
 local function setBtn(btn, state, onText, offText)
     btn.Text = state and onText or offText
-    btn.BackgroundColor3 = state and Color3.fromRGB(0, 140, 0) or Color3.fromRGB(100, 0, 0)
+    btn.BackgroundColor3 = state and Color3.fromRGB(0, 130, 0) or Color3.fromRGB(80, 0, 0)
+    local s = btn:FindFirstChildOfClass("UIStroke")
+    if s then s.Color = state and Color3.fromRGB(0, 180, 0) or Color3.fromRGB(120, 0, 0) end
 end
 
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
-    setBtn(EspBtn, _ESP, "ESP: ON ✔", "ESP: OFF")
+    setBtn(EspBtn, _ESP, "👁  ESP: ON ✔", "👁  ESP: OFF")
     if not _ESP then limparESP() end
 end)
 
 AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
-    setBtn(AimBtn, _AIM, "AIMBOT: ON ✔", "AIMBOT: OFF")
-    -- Mostra/esconde o círculo FOV
-    fovCircle.Visible = _AIM
+    setBtn(AimBtn, _AIM, "🎯  AIMBOT: ON ✔", "🎯  AIMBOT: OFF")
+    FovFrame.Visible = _AIM
 end)
 
 SpeedBtn.MouseButton1Click:Connect(function()
     _SPEED = not _SPEED
-    setBtn(SpeedBtn, _SPEED, "SPEED: ON ✔", "SPEED: OFF")
+    setBtn(SpeedBtn, _SPEED, "⚡  SPEED: ON ✔", "⚡  SPEED: OFF")
     aplicarSpeed()
 end)
 
 FovMinus.MouseButton1Click:Connect(function()
-    FOV_RADIUS = math.max(40, FOV_RADIUS - 20)
-    fovCircle.Radius = FOV_RADIUS
+    FOV_RADIUS = math.max(60, FOV_RADIUS - 20)
+    FovFrame.Size = UDim2.new(0, FOV_RADIUS * 2, 0, FOV_RADIUS * 2)
     FovLbl.Text = "FOV: " .. FOV_RADIUS .. "px"
 end)
 
 FovPlus.MouseButton1Click:Connect(function()
-    FOV_RADIUS = math.min(400, FOV_RADIUS + 20)
-    fovCircle.Radius = FOV_RADIUS
+    FOV_RADIUS = math.min(500, FOV_RADIUS + 20)
+    FovFrame.Size = UDim2.new(0, FOV_RADIUS * 2, 0, FOV_RADIUS * 2)
     FovLbl.Text = "FOV: " .. FOV_RADIUS .. "px"
 end)
 
 MinusBtn.MouseButton1Click:Connect(function()
     speedLevel = math.max(1, speedLevel - 1)
-    atualizarSpeedUI()
+    SpeedLbl.Text = string.format("Nível %d  (WS %d)", speedLevel, getWalkSpeed())
+    if _SPEED then aplicarSpeed() end
 end)
 
 PlusBtn.MouseButton1Click:Connect(function()
     speedLevel = math.min(10, speedLevel + 1)
-    atualizarSpeedUI()
+    SpeedLbl.Text = string.format("Nível %d  (WS %d)", speedLevel, getWalkSpeed())
+    if _SPEED then aplicarSpeed() end
 end)
 
 -- ============================================================
@@ -285,45 +433,27 @@ end)
 -- ============================================================
 RunService.RenderStepped:Connect(function()
 
-    -- Atualiza posição do círculo FOV no centro da tela
-    if fovCircle.Visible then
-        fovCircle.Position = Vector2.new(
-            Camera.ViewportSize.X / 2,
-            Camera.ViewportSize.Y / 2
-        )
-    end
-
-    -- === ESP ===
+    -- === ESP: SelectionBox ===
     if _ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
                 local hum = p.Character:FindFirstChild("Humanoid")
                 if hum and hum.Health > 0 then
-                    local id = "HL_" .. p.UserId
-                    local ex = EspFolder:FindFirstChild(id)
-                    if not ex then
-                        aplicarHighlight(p.Character, id)
-                    else
-                        ex.Adornee = p.Character
-                    end
+                    aplicarESP(p.Character)
                 end
             end
         end
-        for _, hl in pairs(EspFolder:GetChildren()) do
-            if not hl.Adornee or not hl.Adornee.Parent then hl:Destroy() end
-        end
     end
 
-    -- === AIMBOT v8 - FOV CIRCLE + SILENT AIM ===
+    -- === AIMBOT v9: FOV + câmera livre + mais forte ===
     if _AIM then
         local alvo = getMelhorAlvoNoFOV()
         if alvo and alvo.Character then
             local hrp = alvo.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
-                -- Câmera LIVRE: apenas assistência suave (não trava)
-                -- Lerp 0.1 = muito suave, câmera "ajuda" a mira
+                -- Lerp 0.25 = mais forte que v8 (era 0.1), câmera ainda livre
                 local targetCF = CFrame.new(Camera.CFrame.Position, hrp.Position)
-                Camera.CFrame = Camera.CFrame:Lerp(targetCF, SMOOTHNESS)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCF, 0.25)
             end
         end
     end
@@ -331,6 +461,5 @@ end)
 
 -- Limpeza ao sair
 LocalPlayer.AncestryChanged:Connect(function()
-    pcall(function() EspFolder:Destroy() end)
-    pcall(function() fovCircle:Remove() end)
+    pcall(limparESP)
 end)
