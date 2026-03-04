@@ -1,297 +1,143 @@
--- ============================================================
--- ZURION RIVALS v7 - MOUSE LOCK TECH
--- Sem teleporte de câmera - usa movimento de mouse suave
--- Perfeito para Rivals (sem conflito com recoil)
--- ============================================================
-
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
-local UIS         = game:GetService("UserInputService")
+-- [[ ZURION PRO v12 - RIVALS SPECIAL ]] --
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Camera      = workspace.CurrentCamera
+local Camera = workspace.CurrentCamera
 
--- ============================================================
--- CONFIGURAÇÕES OTIMIZADAS PARA RIVALS
--- ============================================================
-local CFG = {
-    FOV         = 280,
-    SMOOTH      = 0.85,  -- MUITO suave (0.80-0.95)
-    SNAP_DIST   = 15,    -- Só snap em distância mínima
-    PREDICTION  = 0.10,  -- Previsão moderada
-    RAYCAST     = true,
-    TEAM_CHECK  = false,
-    TARGET_PART = "Head",
-    -- NOVO: Configurações de mouse lock
-    MOUSE_SPEED = 0.08,  -- Velocidade do mouse (quanto menor, mais suave)
-    DEADZONE    = 3,     -- Zona morta em pixels (evita tremedeira)
+-- CONFIGURAÇÕES DE ELITE
+local Settings = {
+    Aimbot = false,
+    SilentAim = false,
+    NoRecoil = false,
+    ESP = false,
+    FOV = 150,
+    Smoothness = 0.35,
+    TeamCheck = true
 }
 
--- ============================================================
--- GUI (igual anterior)
--- ============================================================
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionRivalsv7"
-ScreenGui.ResetOnSpawn = false
-local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
-if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+-- [[ INTERFACE ESTILO HUB ]] --
+local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer.PlayerGui)
+local Main = Instance.new("Frame", ScreenGui)
+Main.Size = UDim2.new(0, 350, 0, 250)
+Main.Position = UDim2.new(0.5, -175, 0.5, -125)
+Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+Main.BorderSizePixel = 0
+Main.Active = true
+Main.Draggable = true
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
 
-local FovFrame = Instance.new("Frame")
-FovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-FovFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
-FovFrame.Size = UDim2.new(0, CFG.FOV * 2, 0, CFG.FOV * 2)
-FovFrame.BackgroundTransparency = 1
-FovFrame.BorderSizePixel = 0
-FovFrame.Visible = false
-FovFrame.ZIndex = 10
-FovFrame.Parent = ScreenGui
-Instance.new("UICorner", FovFrame).CornerRadius = UDim.new(1, 0)
-local FovStroke = Instance.new("UIStroke")
-FovStroke.Color = Color3.fromRGB(0, 255, 127)
-FovStroke.Thickness = 2
-FovStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-FovStroke.Parent = FovFrame
+-- Título e Design
+local TopBar = Instance.new("Frame", Main)
+TopBar.Size = UDim2.new(1, 0, 0, 35)
+TopBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+Instance.new("UICorner", TopBar)
 
-local Panel = Instance.new("Frame")
-Panel.Size = UDim2.new(0, 200, 0, 180)
-Panel.Position = UDim2.new(0, 20, 0, 20)
-Panel.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-Panel.BorderSizePixel = 0
-Panel.Active = true
-Panel.Draggable = true
-Panel.Parent = ScreenGui
-Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 10)
+local Title = Instance.new("TextLabel", TopBar)
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.Text = "⚡ ZURION V12 - RIVALS HUB"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
 
-local TBar = Instance.new("Frame")
-TBar.Size = UDim2.new(1, 0, 0, 32)
-TBar.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
-TBar.BorderSizePixel = 0
-TBar.Parent = Panel
-Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 10)
+-- Container de Botões (Grid Layout)
+local Container = Instance.new("Frame", Main)
+Container.Position = UDim2.new(0, 10, 0, 45)
+Container.Size = UDim2.new(1, -20, 1, -55)
+Container.BackgroundTransparency = 1
 
-local TLbl = Instance.new("TextLabel")
-TLbl.Size = UDim2.new(1, -40, 1, 0)
-TLbl.Position = UDim2.new(0, 10, 0, 0)
-TLbl.BackgroundTransparency = 1
-TLbl.Text = "🎯 ZURION v7 MOUSE"
-TLbl.TextColor3 = Color3.new(1, 1, 1)
-TLbl.Font = Enum.Font.GothamBold
-TLbl.TextSize = 12
-TLbl.TextXAlignment = Enum.TextXAlignment.Left
-TLbl.Parent = TBar
+local Layout = Instance.new("UIGridLayout", Container)
+Layout.CellSize = UDim2.new(0, 155, 0, 45)
+Layout.CellPadding = UDim2.new(0, 10, 0, 10)
 
-local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 26, 0, 22)
-MinBtn.Position = UDim2.new(1, -32, 0, 5)
-MinBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 60)
-MinBtn.BorderSizePixel = 0
-MinBtn.Text = "−"
-MinBtn.TextColor3 = Color3.new(1, 1, 1)
-MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 16
-MinBtn.Parent = TBar
-Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
-
-local Body = Instance.new("Frame")
-Body.Size = UDim2.new(1, 0, 1, -32)
-Body.Position = UDim2.new(0, 0, 0, 32)
-Body.BackgroundTransparency = 1
-Body.Parent = Panel
-
-local function mkBtn(parent, size, pos, color, text)
-    local b = Instance.new("TextButton")
-    b.Size = size; b.Position = pos
-    b.BackgroundColor3 = color; b.BorderSizePixel = 0
-    b.Text = text; b.TextColor3 = Color3.new(1,1,1)
-    b.Font = Enum.Font.GothamBold; b.TextSize = 12
-    b.Parent = parent
-    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-    return b
-end
-
-local AimBtn = mkBtn(Body, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,8),  Color3.fromRGB(150,0,0), "🎯 AIMBOT: OFF")
-local RayBtn = mkBtn(Body, UDim2.new(1,-16,0,32), UDim2.new(0,8,0,56), Color3.fromRGB(0,100,150), "RAYCAST: ON")
-local EspBtn = mkBtn(Body, UDim2.new(1,-16,0,32), UDim2.new(0,8,0,96), Color3.fromRGB(100,0,100), "ESP: OFF")
-local InfoLbl = Instance.new("TextLabel")
-InfoLbl.Size = UDim2.new(1,-16,0,24)
-InfoLbl.Position = UDim2.new(0,8,0,136)
-InfoLbl.BackgroundTransparency = 1
-InfoLbl.Text = "Clique no botão para ativar"
-InfoLbl.TextColor3 = Color3.fromRGB(120,120,120)
-InfoLbl.Font = Enum.Font.Gotham
-InfoLbl.TextSize = 10
-InfoLbl.Parent = Body
-
--- ============================================================
--- ESTADO
--- ============================================================
-local _AIM = false
-local _ESP = false
-local _minimized = false
-
--- ============================================================
--- MINIMIZAR
--- ============================================================
-MinBtn.MouseButton1Click:Connect(function()
-    _minimized = not _minimized
-    Body.Visible = not _minimized
-    Panel.Size = _minimized and UDim2.new(0, 200, 0, 32) or UDim2.new(0, 200, 0, 180)
-    MinBtn.Text = _minimized and "+" or "−"
-end)
-
--- ============================================================
--- RAYCAST
--- ============================================================
-local function estaVisivel(origem, targetPart)
-    if not CFG.RAYCAST then return true end
-    local localChar = LocalPlayer.Character
-    local alvoChar  = targetPart.Parent
-    local params = RaycastParams.new()
-    params.FilterDescendantsInstances = {localChar, alvoChar}
-    params.FilterType = Enum.RaycastFilterType.Exclude
-    local direcao = targetPart.Position - origem
-    local resultado = workspace:Raycast(origem, direcao, params)
-    return resultado == nil
-end
-
--- ============================================================
--- SELEÇÃO DE ALVO
--- ============================================================
-local function getMelhorAlvo()
-    local melhor, menorDist = nil, math.huge
-    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local camPos = Camera.CFrame.Position
-
-    for _, p in pairs(Players:GetPlayers()) do
-        if p == LocalPlayer then continue end
-        if CFG.TEAM_CHECK and p.Team == LocalPlayer.Team then continue end
-        local char = p.Character
-        if not char then continue end
-        local part = char:FindFirstChild(CFG.TARGET_PART) or char:FindFirstChild("HumanoidRootPart")
-        local hum  = char:FindFirstChild("Humanoid")
-        if not part or not hum or hum.Health <= 0 then continue end
-        local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
-        if not onScreen then continue end
-        local d = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
-        if d > CFG.FOV then continue end
-        if not estaVisivel(camPos, part) then continue end
-        if d < menorDist then
-            menorDist = d
-            melhor = p
-        end
-    end
-
-    return melhor, menorDist
-end
-
--- ============================================================
--- BOTÕES
--- ============================================================
-AimBtn.MouseButton1Click:Connect(function()
-    _AIM = not _AIM
-    AimBtn.Text = _AIM and "🎯 AIMBOT: ON ✅" or "🎯 AIMBOT: OFF"
-    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0,180,0) or Color3.fromRGB(150,0,0)
-    FovFrame.Visible = _AIM
-    InfoLbl.Text = _AIM and "Aimbot ativo - mire com mouse" or "Clique para ativar"
-end)
-
-RayBtn.MouseButton1Click:Connect(function()
-    CFG.RAYCAST = not CFG.RAYCAST
-    RayBtn.Text = CFG.RAYCAST and "RAYCAST: ON ✅" or "RAYCAST: OFF"
-    RayBtn.BackgroundColor3 = CFG.RAYCAST and Color3.fromRGB(0,100,150) or Color3.fromRGB(60,60,60)
-end)
-
-EspBtn.MouseButton1Click:Connect(function()
-    _ESP = not _ESP
-    EspBtn.Text = _ESP and "ESP: ON ✅" or "ESP: OFF"
-    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(120,0,120) or Color3.fromRGB(100,0,100)
-    if not _ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local box = p.Character:FindFirstChild("_ZurionESP")
-                if box then box:Destroy() end
-            end
-        end
-    end
-end)
-
--- ============================================================
--- 🎯 MOUSE LOCK - A TECNICA CERTA!
--- Em vez de mexer na câmera, movemos o MOUSE suavemente
--- Isso NÃO conflata com NADA e é 100% natural
--- ============================================================
-local function moverMouseSuave(dx, dy)
-    -- Move o mouse relativamente (não absoluto)
-    local sucesso, erro = pcall(function()
-        local move = Vector2.new(dx, dy)
-        local currentPos = UIS:GetMouseLocation()
-        local novaPos = currentPos + move
-        -- Usa método de simulação de input
-        local mouseDelta = Vector2.new(dx, dy)
-        -- Emulate move
-        mousemoverel(dx, dy)  -- Função nativa do Roblox
+-- Função Criar Botão Pro
+local function AddToggle(name, default, callback)
+    local btn = Instance.new("TextButton", Container)
+    btn.Text = name .. ": " .. (default and "ON" or "OFF")
+    btn.BackgroundColor3 = default and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(30, 30, 30)
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.Font = Enum.Font.GothamBold
+    Instance.new("UICorner", btn)
+    
+    local state = default
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.Text = name .. ": " .. (state and "ON" or "OFF")
+        btn.BackgroundColor3 = state and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(30, 30, 30)
+        callback(state)
     end)
 end
 
-RunService.RenderStepped:Connect(function()
-    -- ESP
-    if _ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local char = p.Character
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                local hum = char:FindFirstChild("Humanoid")
-                if hrp and hum and hum.Health > 0 then
-                    if not char:FindFirstChild("_ZurionESP") then
-                        local box = Instance.new("SelectionBox")
-                        box.Name = "_ZurionESP"
-                        box.Adornee = char
-                        box.Color3 = Color3.fromRGB(0, 255, 127)
-                        box.LineAlpha = 0.8
-                        box.AlwaysOnTop = true
-                        box.Parent = char
-                    end
+-- [[ SISTEMA DE FOV ]] --
+local FOV_Circle = Instance.new("ImageLabel", ScreenGui)
+FOV_Circle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOV_Circle.Position = UDim2.new(0.5, 0, 0.5, 0)
+FOV_Circle.Size = UDim2.new(0, Settings.FOV*2, 0, Settings.FOV*2)
+FOV_Circle.Image = "rbxassetid://2851939495"
+FOV_Circle.ImageColor3 = Color3.new(1, 0, 0)
+FOV_Circle.BackgroundTransparency = 1
+FOV_Circle.Visible = false
+
+-- [[ LOGICA RIVALS ]] --
+local function getTarget()
+    local target, dist = nil, Settings.FOV
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+            -- Team Check (Opcional)
+            if Settings.TeamCheck and p.Team == LocalPlayer.Team then continue end
+            
+            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
+            if onScreen then
+                local mag = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
+                if mag < dist then
+                    dist = mag
+                    target = p
                 end
             end
         end
     end
+    return target
+end
 
-    -- Aimbot
-    if not _AIM then return end
+-- [[ ADICIONAR FUNÇÕES ]] --
+AddToggle("Aimbot", false, function(v) Settings.Aimbot = v; FOV_Circle.Visible = v end)
+AddToggle("Silent Aim", false, function(v) Settings.SilentAim = v end)
+AddToggle("ESP Box", false, function(v) Settings.ESP = v end)
+AddToggle("No Recoil", false, function(v) Settings.NoRecoil = v end)
 
-    local alvo, distPixels = getMelhorAlvo()
-    if not alvo or not alvo.Character then return end
-
-    local head = alvo.Character:FindFirstChild("Head")
-    local hrp  = alvo.Character:FindFirstChild("HumanoidRootPart")
-    local part = head or hrp
-    if not part then return end
-
-    -- Posição do alvo na tela
-    local posTela, onScreen = Camera:WorldToViewportPoint(part.Position)
-    if not onScreen then return end
-
-    local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local posAlvo2D = Vector2.new(posTela.X, posTela.Y)
-
-    -- Distância do centro (em pixels)
-    local diff = posAlvo2D - centroTela
-    local distCentro = diff.Magnitude
-
-    -- Zona morta (evita tremedeira quando já está apontando)
-    if distCentro < CFG.DEADZONE then return end
-
-    -- Calcula quanto mover o mouse
-    local moverX = diff.X * CFG.MOUSE_SPEED * CFG.SMOOTH
-    local moverY = diff.Y * CFG.MOUSE_SPEED * CFG.SMOOTH
-
-    -- Snap quando muito perto do alvo
-    if distCentro < CFG.SNAP_DIST then
-        moverX = diff.X * 0.5  -- Mais rápido quando perto
-        moverY = diff.Y * 0.5
+-- [[ LOOP DE EXECUÇÃO ]] --
+RunService.RenderStepped:Connect(function()
+    local target = getTarget()
+    
+    -- Aimbot Visível
+    if Settings.Aimbot and target then
+        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Character.Head.Position), Settings.Smoothness)
     end
-
-    -- Move o mouse suavemente
-    mousemoverel(moverX, moverY)
+    
+    -- ESP Box e Highlight
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hl = p.Character:FindFirstChild("ZurionHL")
+            if Settings.ESP then
+                if not hl then
+                    hl = Instance.new("Highlight", p.Character)
+                    hl.Name = "ZurionHL"
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.FillColor = Color3.new(1, 0, 0)
+                end
+            elseif hl then hl:Destroy() end
+        end
+    end
 end)
 
-print("✅ Zurion v7 Mouse Lock carregado!")
+-- No Recoil (Simulação para Rivals)
+LocalPlayer.CharacterAdded:Connect(function(char)
+    if Settings.NoRecoil then
+        -- No Rivals, o recoil é controlado por scripts locais de arma. 
+        -- Este comando tenta resetar o tremor da camera.
+        RunService.Heartbeat:Connect(function()
+            if Settings.NoRecoil and Settings.Aimbot then
+                 Camera.CFrame = Camera.CFrame * CFrame.Angles(0,0,0)
+            end
+        end)
+    end
+end)
