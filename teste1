@@ -1,12 +1,9 @@
 -- ============================================================
--- ZURION AIMBOT PRO — Sistema Profissional Completo
--- Recursos:
---   • Raycasting (visibilidade — não mira através de paredes)
---   • Previsão de movimento (Prediction)
---   • Smoothing progressivo (mira humana, não robótica)
---   • FOV Circle ajustável
---   • Randomização de parte do corpo (Head/HumanoidRootPart)
---   • CameraType.Scriptable (não para ao mexer a tela)
+-- ZURION AIMBOT PRO v3 — CORRIGIDO
+-- Fixes:
+--   • Tela bugando: CFrame calculado corretamente sem jitter
+--   • Não gruda: smooth aumentado + progressivo removido
+--   • Não acerta: previsão de velocidade corrigida (AssemblyLinearVelocity)
 -- ============================================================
 
 local Players     = game:GetService("Players")
@@ -18,13 +15,11 @@ local Camera      = workspace.CurrentCamera
 -- CONFIGURAÇÕES
 -- ============================================================
 local CFG = {
-    FOV         = 220,      -- Raio do FOV em pixels
-    SMOOTH      = 0.30,     -- Suavidade base (0.05 = lento, 1.0 = instantâneo)
-    PREDICTION  = 0.13,     -- Previsão de movimento (0 = sem previsão)
-    TEAM_CHECK  = false,    -- true = ignora aliados
-    RAYCAST     = true,     -- true = não mira através de paredes
-    RANDOMIZE   = true,     -- true = alterna Head/HumanoidRootPart aleatoriamente
-    RAND_CHANCE = 0.15,     -- 15% de chance de mirar no corpo em vez da cabeça
+    FOV        = 220,    -- Raio do FOV em pixels
+    SMOOTH     = 0.65,   -- Suavidade: 0.3 = suave, 0.9 = agressivo
+    PREDICTION = 0.08,   -- Previsão de movimento (0 = sem previsão)
+    RAYCAST    = true,   -- true = não mira através de paredes
+    TEAM_CHECK = false,  -- true = ignora aliados
 }
 
 -- ============================================================
@@ -39,7 +34,6 @@ if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
 -- Círculo FOV
 local FovFrame = Instance.new("Frame")
-FovFrame.Name = "FovCircle"
 FovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 FovFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
 FovFrame.Size = UDim2.new(0, CFG.FOV * 2, 0, CFG.FOV * 2)
@@ -66,9 +60,9 @@ Dot.ZIndex = 11
 Dot.Parent = FovFrame
 Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
 
--- Painel de controle
+-- Painel
 local Panel = Instance.new("Frame")
-Panel.Size = UDim2.new(0, 230, 0, 340)
+Panel.Size = UDim2.new(0, 230, 0, 310)
 Panel.Position = UDim2.new(0, 20, 0, 20)
 Panel.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
 Panel.BorderSizePixel = 0
@@ -124,13 +118,13 @@ end
 
 local AimBtn   = mkBtn(Body, UDim2.new(1,-16,0,50), UDim2.new(0,8,0,10),  Color3.fromRGB(120,0,0), "🎯 AIMBOT: OFF")
 local RayBtn   = mkBtn(Body, UDim2.new(1,-16,0,36), UDim2.new(0,8,0,68),  Color3.fromRGB(0,80,120), "RAYCAST: ON ✔")
-local SmoothLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,114), "Suavidade: 30%")
+local SmoothLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,114), "Suavidade: 65%")
 local SmoothM  = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,134),  Color3.fromRGB(40,40,40), " − ")
 local SmoothP  = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,134),Color3.fromRGB(40,40,40), " + ")
 local FovLbl2  = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,176), "FOV: 220px")
 local FovM     = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,196),  Color3.fromRGB(40,40,40), " − ")
 local FovP     = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,196),Color3.fromRGB(40,40,40), " + ")
-local PredLbl  = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,238), "Previsão: 13%")
+local PredLbl  = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,238), "Previsão: 8%")
 local PredM    = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,258),  Color3.fromRGB(40,40,40), " − ")
 local PredP    = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,258),Color3.fromRGB(40,40,40), " + ")
 
@@ -140,72 +134,34 @@ local PredP    = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,258),Color3
 local _AIM = false
 
 -- ============================================================
--- RAYCASTING — Verifica se o alvo está visível (sem parede)
+-- RAYCASTING — Verifica se o alvo está visível
 -- ============================================================
-local function estaVisivel(targetPart)
+local function estaVisivel(origem, targetPart)
     if not CFG.RAYCAST then return true end
 
     local localChar = LocalPlayer.Character
-    if not localChar then return false end
-    local localHRP = localChar:FindFirstChild("HumanoidRootPart")
-    if not localHRP then return false end
+    local alvoChar  = targetPart.Parent
 
-    local origem   = localHRP.Position
-    local direcao  = (targetPart.Position - origem)
-    local distancia = direcao.Magnitude
-
-    -- Parâmetros do Raycast: ignora o próprio personagem
     local params = RaycastParams.new()
-    params.FilterDescendantsInstances = {localChar}
+    params.FilterDescendantsInstances = {localChar, alvoChar}
     params.FilterType = Enum.RaycastFilterType.Exclude
 
-    local resultado = workspace:Raycast(origem, direcao.Unit * distancia, params)
+    local direcao = targetPart.Position - origem
+    local resultado = workspace:Raycast(origem, direcao, params)
 
-    if resultado then
-        -- Se o raycast bateu em algo que é parte do personagem alvo = visível
-        local inst = resultado.Instance
-        local alvoChar = targetPart.Parent
-        if inst:IsDescendantOf(alvoChar) then
-            return true
-        end
-        return false  -- Bateu em parede ou outro objeto
-    end
-
-    return true  -- Nada bloqueando = visível
+    -- Se não bateu em nada = caminho livre = visível
+    return resultado == nil
 end
 
 -- ============================================================
--- PREVISÃO DE MOVIMENTO
--- Calcula velocidade do inimigo para mirar onde ele ESTARÁ
--- ============================================================
-local lastPositions = {}
-
-local function getVelocidade(player)
-    local char = player.Character
-    if not char then return Vector3.new(0,0,0) end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return Vector3.new(0,0,0) end
-
-    local uid = player.UserId
-    local now = hrp.Position
-
-    if lastPositions[uid] then
-        local vel = (now - lastPositions[uid]) * 60  -- Velocidade por segundo
-        lastPositions[uid] = now
-        return vel
-    else
-        lastPositions[uid] = now
-        return Vector3.new(0,0,0)
-    end
-end
-
--- ============================================================
--- SELEÇÃO DE ALVO: Mais próximo do centro dentro do FOV
--- Prioriza alvos visíveis (sem parede)
+-- SELEÇÃO DE ALVO
 -- ============================================================
 local function getMelhorAlvo()
     local melhor, menorDist = nil, math.huge
     local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    local localChar = LocalPlayer.Character
+    local camPos = Camera.CFrame.Position
 
     for _, p in pairs(Players:GetPlayers()) do
         if p == LocalPlayer then continue end
@@ -214,7 +170,6 @@ local function getMelhorAlvo()
         local char = p.Character
         if not char then continue end
 
-        -- Usa Head para cálculo de FOV (mais preciso para mira)
         local head = char:FindFirstChild("Head")
         local hum  = char:FindFirstChild("Humanoid")
         if not head or not hum or hum.Health <= 0 then continue end
@@ -225,8 +180,7 @@ local function getMelhorAlvo()
         local d = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
         if d > CFG.FOV then continue end
 
-        -- Verifica visibilidade via Raycast
-        if not estaVisivel(head) then continue end
+        if not estaVisivel(camPos, head) then continue end
 
         if d < menorDist then
             menorDist = d
@@ -238,17 +192,6 @@ local function getMelhorAlvo()
 end
 
 -- ============================================================
--- SMOOTHING PROGRESSIVO
--- Quanto mais perto do alvo, mais lento fica (evita tremido)
--- ============================================================
-local function calcularSmooth(distanciaPixels)
-    -- Quando longe do alvo: usa smooth base
-    -- Quando perto do alvo: reduz smooth para não tremer
-    local fator = math.clamp(distanciaPixels / CFG.FOV, 0.1, 1.0)
-    return CFG.SMOOTH * (0.5 + fator * 0.5)
-end
-
--- ============================================================
 -- BOTÕES
 -- ============================================================
 AimBtn.MouseButton1Click:Connect(function()
@@ -256,7 +199,11 @@ AimBtn.MouseButton1Click:Connect(function()
     AimBtn.Text = _AIM and "🎯 AIMBOT: ON ✔" or "🎯 AIMBOT: OFF"
     AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(120, 0, 0)
     FovFrame.Visible = _AIM
-    Camera.CameraType = _AIM and Enum.CameraType.Scriptable or Enum.CameraType.Custom
+    if _AIM then
+        Camera.CameraType = Enum.CameraType.Scriptable
+    else
+        Camera.CameraType = Enum.CameraType.Custom
+    end
 end)
 
 RayBtn.MouseButton1Click:Connect(function()
@@ -295,7 +242,9 @@ PredP.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================================
--- LOOP PRINCIPAL — RenderStepped (antes de cada frame)
+-- LOOP PRINCIPAL — RenderStepped
+-- FIX: CFrame calculado a partir da posição atual da câmera
+--      sem alterar o roll (rotação Z) — evita bug de tela
 -- ============================================================
 RunService.RenderStepped:Connect(function()
     if not _AIM then return end
@@ -303,40 +252,33 @@ RunService.RenderStepped:Connect(function()
     local alvo = getMelhorAlvo()
     if not alvo or not alvo.Character then return end
 
-    -- Randomização de parte do corpo (evita 100% headshot)
-    local partName
-    if CFG.RANDOMIZE and math.random() < CFG.RAND_CHANCE then
-        partName = "HumanoidRootPart"
-    else
-        partName = "Head"
-    end
-
-    local part = alvo.Character:FindFirstChild(partName)
-    if not part then
-        part = alvo.Character:FindFirstChild("HumanoidRootPart")
-    end
+    local head = alvo.Character:FindFirstChild("Head")
+    local hrp  = alvo.Character:FindFirstChild("HumanoidRootPart")
+    local part = head or hrp
     if not part then return end
 
-    -- Previsão de movimento: mira onde o inimigo ESTARÁ
-    local vel = getVelocidade(alvo)
+    -- FIX PREVISÃO: usa AssemblyLinearVelocity (velocidade real do servidor)
+    -- Não multiplica por 60 — já está em studs/segundo
+    local vel = Vector3.new(0, 0, 0)
+    if hrp then
+        local ok2, v = pcall(function() return hrp.AssemblyLinearVelocity end)
+        if ok2 then vel = v end
+    end
+
+    -- Posição prevista
     local posAlvo = part.Position + (vel * CFG.PREDICTION)
 
-    -- Calcula distância na tela para smoothing progressivo
-    local sp, onScreen = Camera:WorldToViewportPoint(posAlvo)
-    if not onScreen then return end
-    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    local distPixels = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
-
-    -- Smoothing progressivo: mais lento quando perto do alvo
-    local smooth = calcularSmooth(distPixels)
-
-    -- Move a câmera com Lerp suave
+    -- FIX CÂMERA: preserva posição atual, só muda direção
+    -- Usa CFrame.new(pos, lookAt) — sem alterar roll
     local camPos = Camera.CFrame.Position
     local targetCF = CFrame.new(camPos, posAlvo)
-    Camera.CFrame = Camera.CFrame:Lerp(targetCF, smooth)
+
+    -- FIX LERP: interpola apenas a rotação, não a posição
+    -- Isso evita que a câmera "voe" para o alvo
+    Camera.CFrame = Camera.CFrame:Lerp(targetCF, CFG.SMOOTH)
 end)
 
--- Restaura câmera ao sair
+-- Restaura câmera ao sair do jogo
 LocalPlayer.AncestryChanged:Connect(function()
     pcall(function() Camera.CameraType = Enum.CameraType.Custom end)
 end)
