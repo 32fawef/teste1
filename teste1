@@ -1,170 +1,284 @@
 -- ============================================================
--- ZURION PRO v10 - THE FINAL VERSION (MOBILE & PC)
+-- ZURION AIMBOT PRO — Sistema Profissional
+-- Recursos:
+--   • Previsão de movimento (Prediction) — mira onde o inimigo VAI estar
+--   • Seleção por FOV (círculo no centro da tela)
+--   • Lerp ajustável (suavidade da mira)
+--   • CameraType.Scriptable (não para ao mexer a tela)
+--   • Prioridade: HumanoidRootPart (corpo) ou Head (cabeça)
+--   • Botão ON/OFF com FOV circle
 -- ============================================================
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local Players     = game:GetService("Players")
+local RunService  = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Camera = workspace.CurrentCamera
-local Mouse = LocalPlayer:GetMouse()
+local Camera      = workspace.CurrentCamera
 
--- CONFIGURAÇÕES INICIAIS
-local _ESP = false
+-- ============================================================
+-- CONFIGURAÇÕES (ajuste aqui)
+-- ============================================================
+local CFG = {
+    FOV         = 200,      -- Raio do círculo FOV em pixels
+    SMOOTH      = 0.45,     -- Suavidade: 0.1 = lento, 1.0 = instantâneo
+    PREDICTION  = 0.12,     -- Previsão de movimento (0 = sem previsão)
+    TARGET_PART = "HumanoidRootPart",  -- "Head" ou "HumanoidRootPart"
+    TEAM_CHECK  = false,    -- true = não mira em aliados (se o jogo tiver times)
+}
+
+-- ============================================================
+-- GUI
+-- ============================================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ZurionAimPro"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.DisplayOrder = 999
+local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
+if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- Círculo FOV
+local FovFrame = Instance.new("Frame")
+FovFrame.Name = "FovCircle"
+FovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+FovFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+FovFrame.Size = UDim2.new(0, CFG.FOV * 2, 0, CFG.FOV * 2)
+FovFrame.BackgroundTransparency = 1
+FovFrame.BorderSizePixel = 0
+FovFrame.Visible = false
+FovFrame.ZIndex = 10
+FovFrame.Parent = ScreenGui
+Instance.new("UICorner", FovFrame).CornerRadius = UDim.new(1, 0)
+local FovStroke = Instance.new("UIStroke")
+FovStroke.Color = Color3.fromRGB(255, 50, 50)
+FovStroke.Thickness = 2
+FovStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+FovStroke.Parent = FovFrame
+
+-- Ponto central
+local Dot = Instance.new("Frame")
+Dot.AnchorPoint = Vector2.new(0.5, 0.5)
+Dot.Position = UDim2.new(0.5, 0, 0.5, 0)
+Dot.Size = UDim2.new(0, 6, 0, 6)
+Dot.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+Dot.BorderSizePixel = 0
+Dot.ZIndex = 11
+Dot.Parent = FovFrame
+Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
+
+-- Painel de controle
+local Panel = Instance.new("Frame")
+Panel.Size = UDim2.new(0, 220, 0, 280)
+Panel.Position = UDim2.new(0, 20, 0, 20)
+Panel.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+Panel.BorderSizePixel = 0
+Panel.Active = true
+Panel.Draggable = true
+Panel.Parent = ScreenGui
+Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 10)
+
+-- Barra de título
+local TBar = Instance.new("Frame")
+TBar.Size = UDim2.new(1, 0, 0, 36)
+TBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+TBar.BorderSizePixel = 0
+TBar.Parent = Panel
+Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 10)
+
+local TLbl = Instance.new("TextLabel")
+TLbl.Size = UDim2.new(1, -10, 1, 0)
+TLbl.Position = UDim2.new(0, 10, 0, 0)
+TLbl.BackgroundTransparency = 1
+TLbl.Text = "🎯 ZURION AIMBOT PRO"
+TLbl.TextColor3 = Color3.new(1, 1, 1)
+TLbl.Font = Enum.Font.GothamBold
+TLbl.TextSize = 13
+TLbl.TextXAlignment = Enum.TextXAlignment.Left
+TLbl.Parent = TBar
+
+local Body = Instance.new("Frame")
+Body.Size = UDim2.new(1, 0, 1, -36)
+Body.Position = UDim2.new(0, 0, 0, 36)
+Body.BackgroundTransparency = 1
+Body.Parent = Panel
+
+local function mkBtn(parent, size, pos, color, text)
+    local b = Instance.new("TextButton")
+    b.Size = size; b.Position = pos
+    b.BackgroundColor3 = color; b.BorderSizePixel = 0
+    b.Text = text; b.TextColor3 = Color3.new(1,1,1)
+    b.Font = Enum.Font.GothamBold; b.TextSize = 14
+    b.Parent = parent
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+    return b
+end
+
+local function mkLbl(parent, size, pos, text)
+    local l = Instance.new("TextLabel")
+    l.Size = size; l.Position = pos
+    l.BackgroundTransparency = 1; l.Text = text
+    l.TextColor3 = Color3.fromRGB(200, 200, 200)
+    l.Font = Enum.Font.Gotham; l.TextSize = 12
+    l.Parent = parent
+    return l
+end
+
+-- Botão principal AIMBOT
+local AimBtn = mkBtn(Body,
+    UDim2.new(1,-16,0,50),
+    UDim2.new(0,8,0,10),
+    Color3.fromRGB(120,0,0),
+    "🎯 AIMBOT: OFF"
+)
+
+-- Suavidade
+local SmoothLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,72), "Suavidade: 45%")
+local SmoothM   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,92),   Color3.fromRGB(40,40,40), " − ")
+local SmoothP   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,92), Color3.fromRGB(40,40,40), " + ")
+
+-- FOV
+local FovLbl2 = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,136), "FOV: 200px")
+local FovM    = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,156),   Color3.fromRGB(40,40,40), " − ")
+local FovP    = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,156), Color3.fromRGB(40,40,40), " + ")
+
+-- Previsão
+local PredLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,200), "Previsão: 12%")
+local PredM   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,220),   Color3.fromRGB(40,40,40), " − ")
+local PredP   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,220), Color3.fromRGB(40,40,40), " + ")
+
+-- ============================================================
+-- ESTADO
+-- ============================================================
 local _AIM = false
-local _SPEED = false
-local fovRadius = 150
-local speedPower = 50
-local aimSmoothness = 0.5 -- Força do Aimbot (0.1 suave, 1.0 instantâneo)
 
 -- ============================================================
--- SISTEMA DE FOV (Círculo Visível)
+-- SISTEMA DE PREVISÃO DE MOVIMENTO
+-- Calcula onde o inimigo ESTARÁ no próximo frame
 -- ============================================================
-local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer.PlayerGui)
-ScreenGui.Name = "Zurion_V10"
+local lastPositions = {}  -- Armazena posição anterior de cada jogador
 
-local FOV_Circle = Instance.new("ImageLabel", ScreenGui)
-FOV_Circle.AnchorPoint = Vector2.new(0.5, 0.5)
-FOV_Circle.Position = UDim2.new(0.5, 0, 0.5, 0)
-FOV_Circle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
-FOV_Circle.Image = "rbxassetid://2851939495" -- Círculo Perfeito
-FOV_Circle.ImageColor3 = Color3.fromRGB(255, 0, 0)
-FOV_Circle.BackgroundTransparency = 1
-FOV_Circle.Visible = false
+local function getVelocidade(player)
+    local char = player.Character
+    if not char then return Vector3.new(0,0,0) end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return Vector3.new(0,0,0) end
 
--- ============================================================
--- INTERFACE PROFISSIONAL (GUI)
--- ============================================================
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 240, 0, 320)
-Main.Position = UDim2.new(0.1, 0, 0.3, 0)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Main.BorderSizePixel = 0
-Main.Active = true
-Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+    local uid = player.UserId
+    local now = hrp.Position
 
-local Header = Instance.new("Frame", Main)
-Header.Size = UDim2.new(1, 0, 0, 40)
-Header.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 10)
-
-local Title = Instance.new("TextLabel", Header)
-Title.Size = UDim2.new(1, 0, 1, 0)
-Title.Text = "⚡ ZURION V10 PRO"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.Font = Enum.Font.GothamBold
-Title.BackgroundTransparency = 1
-
-local function createButton(text, pos, callback)
-    local btn = Instance.new("TextButton", Main)
-    btn.Size = UDim2.new(0.9, 0, 0, 45)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    btn.Text = text
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", btn)
-    
-    btn.MouseButton1Click:Connect(function()
-        callback(btn)
-    end)
-    return btn
-end
-
--- ============================================================
--- FUNÇÕES DE ESP (MÉTODO DUPLO: HIGHLIGHT + BOX)
--- ============================================================
-local function updateESP()
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local char = p.Character
-            local hl = char:FindFirstChild("ZurionHL") or Instance.new("Highlight", char)
-            hl.Name = "ZurionHL"
-            hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            hl.FillColor = Color3.new(1, 0, 0)
-            hl.Enabled = _ESP
-            
-            -- Box de Segurança (caso o Highlight falhe)
-            local box = char:FindFirstChild("ZurionBox") or Instance.new("SelectionBox", char)
-            box.Name = "ZurionBox"
-            box.Adornee = char
-            box.AlwaysOnTop = true
-            box.Visible = _ESP
-            box.Color3 = Color3.new(1, 0, 0)
-        end
+    if lastPositions[uid] then
+        local vel = (now - lastPositions[uid]) / (1/60)  -- Velocidade estimada
+        lastPositions[uid] = now
+        return vel
+    else
+        lastPositions[uid] = now
+        return Vector3.new(0,0,0)
     end
 end
 
 -- ============================================================
--- FUNÇÕES DE AIMBOT (MÉTODO STICKY FORÇADO)
+-- SELEÇÃO DE ALVO: Mais próximo do centro dentro do FOV
 -- ============================================================
-local function getClosestPlayer()
-    local target = nil
-    local shortestDist = fovRadius
-    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+local function getMelhorAlvo()
+    local melhor, menorDist = nil, math.huge
+    local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-            local hum = p.Character:FindFirstChild("Humanoid")
-            if hum and hum.Health > 0 then
-                local pos, onScreen = Camera:WorldToViewportPoint(p.Character.HumanoidRootPart.Position)
-                if onScreen then
-                    local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        target = p
-                    end
-                end
-            end
+        if p == LocalPlayer then continue end
+
+        -- Verificação de time (opcional)
+        if CFG.TEAM_CHECK and p.Team == LocalPlayer.Team then continue end
+
+        local char = p.Character
+        if not char then continue end
+
+        local part = char:FindFirstChild(CFG.TARGET_PART)
+        local hum  = char:FindFirstChild("Humanoid")
+        if not part or not hum or hum.Health <= 0 then continue end
+
+        local sp, onScreen = Camera:WorldToViewportPoint(part.Position)
+        if not onScreen then continue end
+
+        local d = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
+        if d <= CFG.FOV and d < menorDist then
+            menorDist = d
+            melhor = p
         end
     end
-    return target
+
+    return melhor
 end
 
 -- ============================================================
--- BOTOES - ATIVAÇÃO
+-- BOTÕES
 -- ============================================================
-local EspBtn = createButton("ESP: OFF", UDim2.new(0.05, 0, 0.18, 0), function(self)
-    _ESP = not _ESP
-    self.Text = _ESP and "ESP: ON ✔" or "ESP: OFF"
-    self.BackgroundColor3 = _ESP and Color3.new(0, 0.5, 0) or Color3.fromRGB(30, 30, 30)
-end)
-
-local AimBtn = createButton("AIMBOT: OFF", UDim2.new(0.05, 0, 0.35, 0), function(self)
+AimBtn.MouseButton1Click:Connect(function()
     _AIM = not _AIM
-    self.Text = _AIM and "AIMBOT: ON ✔" or "AIMBOT: OFF"
-    self.BackgroundColor3 = _AIM and Color3.new(0, 0.5, 0) or Color3.fromRGB(30, 30, 30)
-    FOV_Circle.Visible = _AIM
+    AimBtn.Text = _AIM and "🎯 AIMBOT: ON ✔" or "🎯 AIMBOT: OFF"
+    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(120, 0, 0)
+    FovFrame.Visible = _AIM
+
+    -- CRÍTICO: Scriptable = aimbot controla câmera sem interferência do Roblox
+    Camera.CameraType = _AIM and Enum.CameraType.Scriptable or Enum.CameraType.Custom
 end)
 
-local SpeedBtn = createButton("SPEED: OFF", UDim2.new(0.05, 0, 0.52, 0), function(self)
-    _SPEED = not _SPEED
-    self.Text = _SPEED and "SPEED: ON ✔" or "SPEED: OFF"
-    self.BackgroundColor3 = _SPEED and Color3.new(0, 0.5, 0) or Color3.fromRGB(30, 30, 30)
+-- Suavidade: 5% a 100%
+SmoothM.MouseButton1Click:Connect(function()
+    CFG.SMOOTH = math.max(0.05, math.round((CFG.SMOOTH - 0.05) * 100) / 100)
+    SmoothLbl.Text = string.format("Suavidade: %d%%", math.floor(CFG.SMOOTH * 100))
+end)
+SmoothP.MouseButton1Click:Connect(function()
+    CFG.SMOOTH = math.min(1.0, math.round((CFG.SMOOTH + 0.05) * 100) / 100)
+    SmoothLbl.Text = string.format("Suavidade: %d%%", math.floor(CFG.SMOOTH * 100))
+end)
+
+-- FOV: 60px a 600px
+FovM.MouseButton1Click:Connect(function()
+    CFG.FOV = math.max(60, CFG.FOV - 20)
+    FovFrame.Size = UDim2.new(0, CFG.FOV * 2, 0, CFG.FOV * 2)
+    FovLbl2.Text = "FOV: " .. CFG.FOV .. "px"
+end)
+FovP.MouseButton1Click:Connect(function()
+    CFG.FOV = math.min(600, CFG.FOV + 20)
+    FovFrame.Size = UDim2.new(0, CFG.FOV * 2, 0, CFG.FOV * 2)
+    FovLbl2.Text = "FOV: " .. CFG.FOV .. "px"
+end)
+
+-- Previsão: 0% a 50%
+PredM.MouseButton1Click:Connect(function()
+    CFG.PREDICTION = math.max(0, math.round((CFG.PREDICTION - 0.02) * 100) / 100)
+    PredLbl.Text = string.format("Previsão: %d%%", math.floor(CFG.PREDICTION * 100))
+end)
+PredP.MouseButton1Click:Connect(function()
+    CFG.PREDICTION = math.min(0.5, math.round((CFG.PREDICTION + 0.02) * 100) / 100)
+    PredLbl.Text = string.format("Previsão: %d%%", math.floor(CFG.PREDICTION * 100))
 end)
 
 -- ============================================================
--- LOOP PRINCIPAL (ALTA PRIORIDADE)
+-- LOOP PRINCIPAL — Aimbot com previsão de movimento
 -- ============================================================
 RunService.RenderStepped:Connect(function()
-    -- Atualizar FOV
-    FOV_Circle.Size = UDim2.new(0, fovRadius * 2, 0, fovRadius * 2)
+    if not _AIM then return end
 
-    -- Rodar ESP
-    updateESP()
+    local alvo = getMelhorAlvo()
+    if not alvo or not alvo.Character then return end
 
-    -- Rodar Aimbot Forte
-    if _AIM then
-        local target = getClosestPlayer()
-        if target and target.Character:FindFirstChild("HumanoidRootPart") then
-            local targetPos = target.Character.HumanoidRootPart.Position
-            -- O segredo para não bugar: Lerp com velocidade alta
-            Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, targetPos), aimSmoothness)
-        end
-    end
+    local part = alvo.Character:FindFirstChild(CFG.TARGET_PART)
+    if not part then return end
 
-    -- Rodar Speed
-    if _SPEED and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
-        LocalPlayer.Character.Humanoid.WalkSpeed = speedPower
-    end
+    -- Calcula velocidade do inimigo para previsão
+    local vel = getVelocidade(alvo)
+
+    -- Posição prevista: onde o inimigo ESTARÁ
+    local posAlvo = part.Position + (vel * CFG.PREDICTION)
+
+    -- Câmera aponta para a posição prevista
+    local camPos = Camera.CFrame.Position
+    local targetCF = CFrame.new(camPos, posAlvo)
+
+    -- Lerp suave mas forte
+    Camera.CFrame = Camera.CFrame:Lerp(targetCF, CFG.SMOOTH)
+end)
+
+-- Restaura câmera ao sair
+LocalPlayer.AncestryChanged:Connect(function()
+    pcall(function() Camera.CameraType = Enum.CameraType.Custom end)
 end)
