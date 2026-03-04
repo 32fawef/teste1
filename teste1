@@ -1,8 +1,7 @@
 -- ============================================================
--- ZURION RIVALS AIMBOT v6
--- Otimizado para Rivals (jogo de tiro rápido)
--- Técnica: BindToRenderStep Camera+1 SEM CameraType.Scriptable
--- Isso elimina 100% do travamento de tela
+-- ZURION RIVALS v7 - MOUSE LOCK TECH
+-- Sem teleporte de câmera - usa movimento de mouse suave
+-- Perfeito para Rivals (sem conflito com recoil)
 -- ============================================================
 
 local Players     = game:GetService("Players")
@@ -12,30 +11,30 @@ local LocalPlayer = Players.LocalPlayer
 local Camera      = workspace.CurrentCamera
 
 -- ============================================================
--- CONFIGURAÇÕES (ajustadas para Rivals)
+-- CONFIGURAÇÕES OTIMIZADAS PARA RIVALS
 -- ============================================================
 local CFG = {
-    FOV         = 250,   -- Raio do FOV em pixels
-    SMOOTH      = 0.55,  -- Tracking rápido para Rivals (0.40–0.70)
-    SNAP_DIST   = 30,    -- Pixels para grude instantâneo
-    PREDICTION  = 0.12,  -- Previsão alta para movimento rápido
-    RAYCAST     = true,  -- Não mira através de paredes
+    FOV         = 280,
+    SMOOTH      = 0.85,  -- MUITO suave (0.80-0.95)
+    SNAP_DIST   = 15,    -- Só snap em distância mínima
+    PREDICTION  = 0.10,  -- Previsão moderada
+    RAYCAST     = true,
     TEAM_CHECK  = false,
-    -- Rivals usa Head como hitbox principal
     TARGET_PART = "Head",
+    -- NOVO: Configurações de mouse lock
+    MOUSE_SPEED = 0.08,  -- Velocidade do mouse (quanto menor, mais suave)
+    DEADZONE    = 3,     -- Zona morta em pixels (evita tremedeira)
 }
 
 -- ============================================================
--- GUI
+-- GUI (igual anterior)
 -- ============================================================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ZurionRivals"
+ScreenGui.Name = "ZurionRivalsv7"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- Círculo FOV
 local FovFrame = Instance.new("Frame")
 FovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 FovFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -47,27 +46,15 @@ FovFrame.ZIndex = 10
 FovFrame.Parent = ScreenGui
 Instance.new("UICorner", FovFrame).CornerRadius = UDim.new(1, 0)
 local FovStroke = Instance.new("UIStroke")
-FovStroke.Color = Color3.fromRGB(255, 80, 0)
+FovStroke.Color = Color3.fromRGB(0, 255, 127)
 FovStroke.Thickness = 2
 FovStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 FovStroke.Parent = FovFrame
 
--- Crosshair central
-local Cross = Instance.new("Frame")
-Cross.AnchorPoint = Vector2.new(0.5, 0.5)
-Cross.Position = UDim2.new(0.5, 0, 0.5, 0)
-Cross.Size = UDim2.new(0, 8, 0, 8)
-Cross.BackgroundColor3 = Color3.fromRGB(255, 80, 0)
-Cross.BorderSizePixel = 0
-Cross.ZIndex = 11
-Cross.Parent = FovFrame
-Instance.new("UICorner", Cross).CornerRadius = UDim.new(1, 0)
-
--- Painel
 local Panel = Instance.new("Frame")
-Panel.Size = UDim2.new(0, 230, 0, 200)
+Panel.Size = UDim2.new(0, 200, 0, 180)
 Panel.Position = UDim2.new(0, 20, 0, 20)
-Panel.BackgroundColor3 = Color3.fromRGB(8, 8, 8)
+Panel.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
 Panel.BorderSizePixel = 0
 Panel.Active = true
 Panel.Draggable = true
@@ -75,38 +62,38 @@ Panel.Parent = ScreenGui
 Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 10)
 
 local TBar = Instance.new("Frame")
-TBar.Size = UDim2.new(1, 0, 0, 36)
-TBar.BackgroundColor3 = Color3.fromRGB(200, 80, 0)
+TBar.Size = UDim2.new(1, 0, 0, 32)
+TBar.BackgroundColor3 = Color3.fromRGB(0, 200, 100)
 TBar.BorderSizePixel = 0
 TBar.Parent = Panel
 Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 10)
 
 local TLbl = Instance.new("TextLabel")
-TLbl.Size = UDim2.new(1, -50, 1, 0)
+TLbl.Size = UDim2.new(1, -40, 1, 0)
 TLbl.Position = UDim2.new(0, 10, 0, 0)
 TLbl.BackgroundTransparency = 1
-TLbl.Text = "🎯 ZURION RIVALS v6"
+TLbl.Text = "🎯 ZURION v7 MOUSE"
 TLbl.TextColor3 = Color3.new(1, 1, 1)
 TLbl.Font = Enum.Font.GothamBold
-TLbl.TextSize = 13
+TLbl.TextSize = 12
 TLbl.TextXAlignment = Enum.TextXAlignment.Left
 TLbl.Parent = TBar
 
 local MinBtn = Instance.new("TextButton")
-MinBtn.Size = UDim2.new(0, 30, 0, 26)
-MinBtn.Position = UDim2.new(1, -36, 0, 5)
-MinBtn.BackgroundColor3 = Color3.fromRGB(100, 40, 0)
+MinBtn.Size = UDim2.new(0, 26, 0, 22)
+MinBtn.Position = UDim2.new(1, -32, 0, 5)
+MinBtn.BackgroundColor3 = Color3.fromRGB(0, 120, 60)
 MinBtn.BorderSizePixel = 0
 MinBtn.Text = "−"
 MinBtn.TextColor3 = Color3.new(1, 1, 1)
 MinBtn.Font = Enum.Font.GothamBold
-MinBtn.TextSize = 18
+MinBtn.TextSize = 16
 MinBtn.Parent = TBar
 Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
 local Body = Instance.new("Frame")
-Body.Size = UDim2.new(1, 0, 1, -36)
-Body.Position = UDim2.new(0, 0, 0, 36)
+Body.Size = UDim2.new(1, 0, 1, -32)
+Body.Position = UDim2.new(0, 0, 0, 32)
 Body.BackgroundTransparency = 1
 Body.Parent = Panel
 
@@ -115,24 +102,23 @@ local function mkBtn(parent, size, pos, color, text)
     b.Size = size; b.Position = pos
     b.BackgroundColor3 = color; b.BorderSizePixel = 0
     b.Text = text; b.TextColor3 = Color3.new(1,1,1)
-    b.Font = Enum.Font.GothamBold; b.TextSize = 13
+    b.Font = Enum.Font.GothamBold; b.TextSize = 12
     b.Parent = parent
     Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
     return b
 end
 
-local AimBtn = mkBtn(Body, UDim2.new(1,-16,0,50), UDim2.new(0,8,0,10),  Color3.fromRGB(120,0,0), "🎯 AIMBOT: OFF [RMB]")
-local RayBtn = mkBtn(Body, UDim2.new(1,-16,0,36), UDim2.new(0,8,0,68),  Color3.fromRGB(0,80,120), "RAYCAST: ON ✔")
-local EspBtn = mkBtn(Body, UDim2.new(1,-16,0,36), UDim2.new(0,8,0,112), Color3.fromRGB(80,0,80), "ESP: OFF")
+local AimBtn = mkBtn(Body, UDim2.new(1,-16,0,40), UDim2.new(0,8,0,8),  Color3.fromRGB(150,0,0), "🎯 AIMBOT: OFF")
+local RayBtn = mkBtn(Body, UDim2.new(1,-16,0,32), UDim2.new(0,8,0,56), Color3.fromRGB(0,100,150), "RAYCAST: ON")
+local EspBtn = mkBtn(Body, UDim2.new(1,-16,0,32), UDim2.new(0,8,0,96), Color3.fromRGB(100,0,100), "ESP: OFF")
 local InfoLbl = Instance.new("TextLabel")
-InfoLbl.Size = UDim2.new(1,-16,0,30)
-InfoLbl.Position = UDim2.new(0,8,0,156)
+InfoLbl.Size = UDim2.new(1,-16,0,24)
+InfoLbl.Position = UDim2.new(0,8,0,136)
 InfoLbl.BackgroundTransparency = 1
-InfoLbl.Text = "Segure RMB para ativar aimbot"
-InfoLbl.TextColor3 = Color3.fromRGB(150,150,150)
+InfoLbl.Text = "Clique no botão para ativar"
+InfoLbl.TextColor3 = Color3.fromRGB(120,120,120)
 InfoLbl.Font = Enum.Font.Gotham
-InfoLbl.TextSize = 11
-InfoLbl.TextWrapped = true
+InfoLbl.TextSize = 10
 InfoLbl.Parent = Body
 
 -- ============================================================
@@ -141,7 +127,6 @@ InfoLbl.Parent = Body
 local _AIM = false
 local _ESP = false
 local _minimized = false
-local _holdMode = true  -- Segurar RMB para ativar (padrão Rivals)
 
 -- ============================================================
 -- MINIMIZAR
@@ -149,12 +134,12 @@ local _holdMode = true  -- Segurar RMB para ativar (padrão Rivals)
 MinBtn.MouseButton1Click:Connect(function()
     _minimized = not _minimized
     Body.Visible = not _minimized
-    Panel.Size = _minimized and UDim2.new(0, 230, 0, 36) or UDim2.new(0, 230, 0, 200)
+    Panel.Size = _minimized and UDim2.new(0, 200, 0, 32) or UDim2.new(0, 200, 0, 180)
     MinBtn.Text = _minimized and "+" or "−"
 end)
 
 -- ============================================================
--- RAYCASTING
+-- RAYCAST
 -- ============================================================
 local function estaVisivel(origem, targetPart)
     if not CFG.RAYCAST then return true end
@@ -202,32 +187,23 @@ end
 -- BOTÕES
 -- ============================================================
 AimBtn.MouseButton1Click:Connect(function()
-    _holdMode = not _holdMode
-    if _holdMode then
-        AimBtn.Text = "🎯 AIMBOT: OFF [RMB]"
-        InfoLbl.Text = "Segure RMB para ativar aimbot"
-    else
-        _AIM = not _AIM
-        AimBtn.Text = _AIM and "🎯 AIMBOT: ON ✔" or "🎯 AIMBOT: OFF"
-        AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0,150,0) or Color3.fromRGB(120,0,0)
-        FovFrame.Visible = _AIM
-        InfoLbl.Text = _AIM and "Aimbot ativo (toggle)" or "Clique para ativar toggle"
-    end
+    _AIM = not _AIM
+    AimBtn.Text = _AIM and "🎯 AIMBOT: ON ✅" or "🎯 AIMBOT: OFF"
+    AimBtn.BackgroundColor3 = _AIM and Color3.fromRGB(0,180,0) or Color3.fromRGB(150,0,0)
+    FovFrame.Visible = _AIM
+    InfoLbl.Text = _AIM and "Aimbot ativo - mire com mouse" or "Clique para ativar"
 end)
 
 RayBtn.MouseButton1Click:Connect(function()
     CFG.RAYCAST = not CFG.RAYCAST
-    RayBtn.Text = CFG.RAYCAST and "RAYCAST: ON ✔" or "RAYCAST: OFF"
-    RayBtn.BackgroundColor3 = CFG.RAYCAST and Color3.fromRGB(0,80,120) or Color3.fromRGB(60,60,60)
+    RayBtn.Text = CFG.RAYCAST and "RAYCAST: ON ✅" or "RAYCAST: OFF"
+    RayBtn.BackgroundColor3 = CFG.RAYCAST and Color3.fromRGB(0,100,150) or Color3.fromRGB(60,60,60)
 end)
 
--- ============================================================
--- ESP (SelectionBox — atravessa paredes)
--- ============================================================
 EspBtn.MouseButton1Click:Connect(function()
     _ESP = not _ESP
-    EspBtn.Text = _ESP and "ESP: ON ✔" or "ESP: OFF"
-    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(100,0,100) or Color3.fromRGB(80,0,80)
+    EspBtn.Text = _ESP and "ESP: ON ✅" or "ESP: OFF"
+    EspBtn.BackgroundColor3 = _ESP and Color3.fromRGB(120,0,120) or Color3.fromRGB(100,0,100)
     if not _ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
@@ -239,30 +215,25 @@ EspBtn.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================================
--- MODO HOLD (Segurar RMB) — padrão para jogos de tiro
+-- 🎯 MOUSE LOCK - A TECNICA CERTA!
+-- Em vez de mexer na câmera, movemos o MOUSE suavemente
+-- Isso NÃO conflata com NADA e é 100% natural
 -- ============================================================
-UIS.InputBegan:Connect(function(input, gpe)
-    if gpe then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton2 and _holdMode then
-        _AIM = true
-        FovFrame.Visible = true
-    end
-end)
+local function moverMouseSuave(dx, dy)
+    -- Move o mouse relativamente (não absoluto)
+    local sucesso, erro = pcall(function()
+        local move = Vector2.new(dx, dy)
+        local currentPos = UIS:GetMouseLocation()
+        local novaPos = currentPos + move
+        -- Usa método de simulação de input
+        local mouseDelta = Vector2.new(dx, dy)
+        -- Emulate move
+        mousemoverel(dx, dy)  -- Função nativa do Roblox
+    end)
+end
 
-UIS.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 and _holdMode then
-        _AIM = false
-        FovFrame.Visible = false
-    end
-end)
-
--- ============================================================
--- LOOP PRINCIPAL
--- BindToRenderStep Camera+1: roda DEPOIS do sistema de câmera
--- do Roblox — SEM CameraType.Scriptable = SEM travamento
--- ============================================================
-RunService:BindToRenderStep("ZurionRivals", Enum.RenderPriority.Camera.Value + 1, function()
-    -- ESP loop
+RunService.RenderStepped:Connect(function()
+    -- ESP
     if _ESP then
         for _, p in pairs(Players:GetPlayers()) do
             if p ~= LocalPlayer and p.Character then
@@ -274,7 +245,7 @@ RunService:BindToRenderStep("ZurionRivals", Enum.RenderPriority.Camera.Value + 1
                         local box = Instance.new("SelectionBox")
                         box.Name = "_ZurionESP"
                         box.Adornee = char
-                        box.Color3 = Color3.fromRGB(255, 80, 0)
+                        box.Color3 = Color3.fromRGB(0, 255, 127)
                         box.LineAlpha = 0.8
                         box.AlwaysOnTop = true
                         box.Parent = char
@@ -295,39 +266,32 @@ RunService:BindToRenderStep("ZurionRivals", Enum.RenderPriority.Camera.Value + 1
     local part = head or hrp
     if not part then return end
 
-    -- Velocidade real do alvo
-    local vel = Vector3.new(0, 0, 0)
-    if hrp then
-        local ok2, v = pcall(function() return hrp.AssemblyLinearVelocity end)
-        if ok2 and v then vel = v end
+    -- Posição do alvo na tela
+    local posTela, onScreen = Camera:WorldToViewportPoint(part.Position)
+    if not onScreen then return end
+
+    local centroTela = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    local posAlvo2D = Vector2.new(posTela.X, posTela.Y)
+
+    -- Distância do centro (em pixels)
+    local diff = posAlvo2D - centroTela
+    local distCentro = diff.Magnitude
+
+    -- Zona morta (evita tremedeira quando já está apontando)
+    if distCentro < CFG.DEADZONE then return end
+
+    -- Calcula quanto mover o mouse
+    local moverX = diff.X * CFG.MOUSE_SPEED * CFG.SMOOTH
+    local moverY = diff.Y * CFG.MOUSE_SPEED * CFG.SMOOTH
+
+    -- Snap quando muito perto do alvo
+    if distCentro < CFG.SNAP_DIST then
+        moverX = diff.X * 0.5  -- Mais rápido quando perto
+        moverY = diff.Y * 0.5
     end
 
-    -- Posição prevista (previsão alta para Rivals)
-    local posAlvo = part.Position + (vel * CFG.PREDICTION)
-
-    local camPos = Camera.CFrame.Position
-    local direcaoAtual = Camera.CFrame.LookVector
-    local direcaoAlvo  = (posAlvo - camPos).Unit
-
-    -- Grude duplo: snap quando perto, smooth quando longe
-    local smooth
-    if distPixels and distPixels < CFG.SNAP_DIST then
-        smooth = 1.0  -- Grude 100% na cabeça
-    else
-        smooth = CFG.SMOOTH
-    end
-
-    local novaDirecao = direcaoAtual:Lerp(direcaoAlvo, smooth)
-
-    -- Aplica APENAS a rotação, sem mover a câmera
-    -- Isso não conflita com o sistema de câmera do Rivals
-    Camera.CFrame = CFrame.new(camPos, camPos + novaDirecao)
+    -- Move o mouse suavemente
+    mousemoverel(moverX, moverY)
 end)
 
--- Limpeza ao sair
-LocalPlayer.AncestryChanged:Connect(function()
-    pcall(function()
-        RunService:UnbindFromRenderStep("ZurionRivals")
-        -- NÃO precisa restaurar CameraType pois nunca mudamos
-    end)
-end)
+print("✅ Zurion v7 Mouse Lock carregado!")
