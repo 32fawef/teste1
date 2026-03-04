@@ -1,9 +1,9 @@
 -- ============================================================
--- ZURION AIMBOT PRO v3 — CORRIGIDO
+-- ZURION AIMBOT PRO v4 — SUAVE + GUI MINIMIZÁVEL
 -- Fixes:
---   • Tela bugando: CFrame calculado corretamente sem jitter
---   • Não gruda: smooth aumentado + progressivo removido
---   • Não acerta: previsão de velocidade corrigida (AssemblyLinearVelocity)
+--   • Aimbot suave: smooth baixo + interpolação natural
+--   • GUI minimizável: botão [−] para esconder o painel
+--   • Sem travamento: CameraType restaurado corretamente
 -- ============================================================
 
 local Players     = game:GetService("Players")
@@ -16,10 +16,10 @@ local Camera      = workspace.CurrentCamera
 -- ============================================================
 local CFG = {
     FOV        = 220,    -- Raio do FOV em pixels
-    SMOOTH     = 0.65,   -- Suavidade: 0.3 = suave, 0.9 = agressivo
-    PREDICTION = 0.08,   -- Previsão de movimento (0 = sem previsão)
-    RAYCAST    = true,   -- true = não mira através de paredes
-    TEAM_CHECK = false,  -- true = ignora aliados
+    SMOOTH     = 0.18,   -- Suavidade: 0.10 = muito suave, 0.50 = agressivo
+    PREDICTION = 0.07,   -- Previsão de movimento
+    RAYCAST    = true,   -- Não mira através de paredes
+    TEAM_CHECK = false,  -- Ignora aliados
 }
 
 -- ============================================================
@@ -32,7 +32,7 @@ ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- Círculo FOV
+-- ── Círculo FOV ──────────────────────────────────────────────
 local FovFrame = Instance.new("Frame")
 FovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 FovFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -49,7 +49,6 @@ FovStroke.Thickness = 2
 FovStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
 FovStroke.Parent = FovFrame
 
--- Ponto central
 local Dot = Instance.new("Frame")
 Dot.AnchorPoint = Vector2.new(0.5, 0.5)
 Dot.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -60,7 +59,7 @@ Dot.ZIndex = 11
 Dot.Parent = FovFrame
 Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
 
--- Painel
+-- ── Painel principal ─────────────────────────────────────────
 local Panel = Instance.new("Frame")
 Panel.Size = UDim2.new(0, 230, 0, 310)
 Panel.Position = UDim2.new(0, 20, 0, 20)
@@ -71,6 +70,7 @@ Panel.Draggable = true
 Panel.Parent = ScreenGui
 Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 10)
 
+-- Barra de título
 local TBar = Instance.new("Frame")
 TBar.Size = UDim2.new(1, 0, 0, 36)
 TBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
@@ -79,7 +79,7 @@ TBar.Parent = Panel
 Instance.new("UICorner", TBar).CornerRadius = UDim.new(0, 10)
 
 local TLbl = Instance.new("TextLabel")
-TLbl.Size = UDim2.new(1, -10, 1, 0)
+TLbl.Size = UDim2.new(1, -50, 1, 0)
 TLbl.Position = UDim2.new(0, 10, 0, 0)
 TLbl.BackgroundTransparency = 1
 TLbl.Text = "🎯 ZURION AIMBOT PRO"
@@ -89,12 +89,27 @@ TLbl.TextSize = 13
 TLbl.TextXAlignment = Enum.TextXAlignment.Left
 TLbl.Parent = TBar
 
+-- Botão minimizar [−] / [+]
+local MinBtn = Instance.new("TextButton")
+MinBtn.Size = UDim2.new(0, 30, 0, 26)
+MinBtn.Position = UDim2.new(1, -36, 0, 5)
+MinBtn.BackgroundColor3 = Color3.fromRGB(60, 0, 0)
+MinBtn.BorderSizePixel = 0
+MinBtn.Text = "−"
+MinBtn.TextColor3 = Color3.new(1, 1, 1)
+MinBtn.Font = Enum.Font.GothamBold
+MinBtn.TextSize = 18
+MinBtn.Parent = TBar
+Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
+
+-- Corpo do painel (escondido ao minimizar)
 local Body = Instance.new("Frame")
 Body.Size = UDim2.new(1, 0, 1, -36)
 Body.Position = UDim2.new(0, 0, 0, 36)
 Body.BackgroundTransparency = 1
 Body.Parent = Panel
 
+-- ── Helpers de UI ────────────────────────────────────────────
 local function mkBtn(parent, size, pos, color, text)
     local b = Instance.new("TextButton")
     b.Size = size; b.Position = pos
@@ -116,25 +131,42 @@ local function mkLbl(parent, size, pos, text)
     return l
 end
 
-local AimBtn   = mkBtn(Body, UDim2.new(1,-16,0,50), UDim2.new(0,8,0,10),  Color3.fromRGB(120,0,0), "🎯 AIMBOT: OFF")
-local RayBtn   = mkBtn(Body, UDim2.new(1,-16,0,36), UDim2.new(0,8,0,68),  Color3.fromRGB(0,80,120), "RAYCAST: ON ✔")
-local SmoothLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,114), "Suavidade: 65%")
-local SmoothM  = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,134),  Color3.fromRGB(40,40,40), " − ")
-local SmoothP  = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,134),Color3.fromRGB(40,40,40), " + ")
-local FovLbl2  = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,176), "FOV: 220px")
-local FovM     = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,196),  Color3.fromRGB(40,40,40), " − ")
-local FovP     = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,196),Color3.fromRGB(40,40,40), " + ")
-local PredLbl  = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,238), "Previsão: 8%")
-local PredM    = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,258),  Color3.fromRGB(40,40,40), " − ")
-local PredP    = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,258),Color3.fromRGB(40,40,40), " + ")
+local AimBtn    = mkBtn(Body, UDim2.new(1,-16,0,50), UDim2.new(0,8,0,10),  Color3.fromRGB(120,0,0), "🎯 AIMBOT: OFF")
+local RayBtn    = mkBtn(Body, UDim2.new(1,-16,0,36), UDim2.new(0,8,0,68),  Color3.fromRGB(0,80,120), "RAYCAST: ON ✔")
+local SmoothLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,114), "Suavidade: 18%")
+local SmoothM   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,134),  Color3.fromRGB(40,40,40), " − ")
+local SmoothP   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,134),Color3.fromRGB(40,40,40), " + ")
+local FovLbl2   = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,176), "FOV: 220px")
+local FovM      = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,196),  Color3.fromRGB(40,40,40), " − ")
+local FovP      = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,196),Color3.fromRGB(40,40,40), " + ")
+local PredLbl   = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,238), "Previsão: 7%")
+local PredM     = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,258),  Color3.fromRGB(40,40,40), " − ")
+local PredP     = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,258),Color3.fromRGB(40,40,40), " + ")
 
 -- ============================================================
 -- ESTADO
 -- ============================================================
 local _AIM = false
+local _minimized = false
 
 -- ============================================================
--- RAYCASTING — Verifica se o alvo está visível
+-- MINIMIZAR / MAXIMIZAR
+-- ============================================================
+MinBtn.MouseButton1Click:Connect(function()
+    _minimized = not _minimized
+    if _minimized then
+        Body.Visible = false
+        Panel.Size = UDim2.new(0, 230, 0, 36)  -- Só a barra de título
+        MinBtn.Text = "+"
+    else
+        Body.Visible = true
+        Panel.Size = UDim2.new(0, 230, 0, 310)
+        MinBtn.Text = "−"
+    end
+end)
+
+-- ============================================================
+-- RAYCASTING
 -- ============================================================
 local function estaVisivel(origem, targetPart)
     if not CFG.RAYCAST then return true end
@@ -148,8 +180,6 @@ local function estaVisivel(origem, targetPart)
 
     local direcao = targetPart.Position - origem
     local resultado = workspace:Raycast(origem, direcao, params)
-
-    -- Se não bateu em nada = caminho livre = visível
     return resultado == nil
 end
 
@@ -159,8 +189,6 @@ end
 local function getMelhorAlvo()
     local melhor, menorDist = nil, math.huge
     local centro = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-
-    local localChar = LocalPlayer.Character
     local camPos = Camera.CFrame.Position
 
     for _, p in pairs(Players:GetPlayers()) do
@@ -213,11 +241,11 @@ RayBtn.MouseButton1Click:Connect(function()
 end)
 
 SmoothM.MouseButton1Click:Connect(function()
-    CFG.SMOOTH = math.max(0.05, math.floor((CFG.SMOOTH - 0.05) * 100 + 0.5) / 100)
+    CFG.SMOOTH = math.max(0.05, math.floor((CFG.SMOOTH - 0.02) * 100 + 0.5) / 100)
     SmoothLbl.Text = string.format("Suavidade: %d%%", math.floor(CFG.SMOOTH * 100))
 end)
 SmoothP.MouseButton1Click:Connect(function()
-    CFG.SMOOTH = math.min(1.0, math.floor((CFG.SMOOTH + 0.05) * 100 + 0.5) / 100)
+    CFG.SMOOTH = math.min(1.0, math.floor((CFG.SMOOTH + 0.02) * 100 + 0.5) / 100)
     SmoothLbl.Text = string.format("Suavidade: %d%%", math.floor(CFG.SMOOTH * 100))
 end)
 
@@ -242,9 +270,9 @@ PredP.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================================
--- LOOP PRINCIPAL — RenderStepped
--- FIX: CFrame calculado a partir da posição atual da câmera
---      sem alterar o roll (rotação Z) — evita bug de tela
+-- LOOP PRINCIPAL
+-- FIX TRAVAMENTO: usa slerp angular em vez de Lerp completo
+-- Isso move APENAS a direção da câmera, sem afetar a posição
 -- ============================================================
 RunService.RenderStepped:Connect(function()
     if not _AIM then return end
@@ -257,28 +285,34 @@ RunService.RenderStepped:Connect(function()
     local part = head or hrp
     if not part then return end
 
-    -- FIX PREVISÃO: usa AssemblyLinearVelocity (velocidade real do servidor)
-    -- Não multiplica por 60 — já está em studs/segundo
+    -- Velocidade real do servidor (sem multiplicar por 60)
     local vel = Vector3.new(0, 0, 0)
     if hrp then
         local ok2, v = pcall(function() return hrp.AssemblyLinearVelocity end)
-        if ok2 then vel = v end
+        if ok2 and v then vel = v end
     end
 
     -- Posição prevista
     local posAlvo = part.Position + (vel * CFG.PREDICTION)
 
-    -- FIX CÂMERA: preserva posição atual, só muda direção
-    -- Usa CFrame.new(pos, lookAt) — sem alterar roll
+    -- Posição atual da câmera (não muda)
     local camPos = Camera.CFrame.Position
-    local targetCF = CFrame.new(camPos, posAlvo)
 
-    -- FIX LERP: interpola apenas a rotação, não a posição
-    -- Isso evita que a câmera "voe" para o alvo
-    Camera.CFrame = Camera.CFrame:Lerp(targetCF, CFG.SMOOTH)
+    -- Direção atual e direção alvo
+    local direcaoAtual = Camera.CFrame.LookVector
+    local direcaoAlvo  = (posAlvo - camPos).Unit
+
+    -- Interpolação suave da direção (slerp manual)
+    -- Isso NÃO move a câmera, só gira ela suavemente
+    local novaDirecao = direcaoAtual:Lerp(direcaoAlvo, CFG.SMOOTH)
+
+    -- Reconstrói o CFrame mantendo a posição original
+    -- upVector fixo em (0,1,0) evita rotação indesejada (roll)
+    local novoCFrame = CFrame.new(camPos, camPos + novaDirecao)
+    Camera.CFrame = novoCFrame
 end)
 
--- Restaura câmera ao sair do jogo
+-- Restaura câmera ao sair
 LocalPlayer.AncestryChanged:Connect(function()
     pcall(function() Camera.CameraType = Enum.CameraType.Custom end)
 end)
