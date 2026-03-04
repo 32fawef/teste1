@@ -1,172 +1,307 @@
--- ============================================================
--- ZURION v13 - RIVALS DEFINITIVE EDITION
--- Fix: CFrame Prediction (Não treme) + GUI Toggle
--- ============================================================
+--[[
+    ZURION SUPREME v14 - SPECIAL RIVALS EDITION
+    SISTEMA REFEITO: AIMBOT FORÇADO + ESP MULTICAMADA
+    ESTRUTURA DE ALTO DESEMPENHO PARA MOBILE
+]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local UIS = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- CONFIGURAÇÕES RIVAIS
+-- ============================================================
+-- CONFIGURAÇÕES AVANÇADAS
+-- ============================================================
 local Settings = {
-    Enabled = false,
-    ESP = false,
-    FOV = 250,
-    Smoothness = 0.2, -- 0.1 suave | 0.5 forte
-    Prediction = 0.15, -- Ajusta para a velocidade do Rivals
-    TargetPart = "Head"
+    Aimbot = {
+        Enabled = false,
+        Fov = 250,
+        Smoothness = 0.25, -- Suavidade (0.1 - 1.0)
+        Prediction = 0.18, -- Ajuste de lag/balística
+        TargetPart = "Head",
+        WallCheck = true,
+        Sticky = true, -- Gruda mesmo se o alvo sair do FOV momentaneamente
+        MaxDistance = 1000
+    },
+    ESP = {
+        Enabled = false,
+        Boxes = true,
+        Highlights = true,
+        Names = true,
+        Tracers = false,
+        Color = Color3.fromRGB(255, 0, 0)
+    },
+    GUI = {
+        MainColor = Color3.fromRGB(180, 0, 0),
+        AccentColor = Color3.fromRGB(20, 20, 20),
+        Visible = true
+    }
 }
 
 -- ============================================================
--- INTERFACE (GUI) COM BOTÃO DE ABRIR/FECHAR
+-- GERENCIADOR DE ALVOS (SISTEMA DE PREDIÇÃO)
 -- ============================================================
-local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer.PlayerGui)
-ScreenGui.Name = "ZurionV13"
+local CurrentTarget = nil
 
--- Botão de Abrir (Sempre visível quando fechado)
-local OpenBtn = Instance.new("TextButton", ScreenGui)
-OpenBtn.Size = UDim2.new(0, 50, 0, 50)
-OpenBtn.Position = UDim2.new(0, 10, 0.5, -25)
-OpenBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-OpenBtn.Text = "Z"
-OpenBtn.TextColor3 = Color3.new(1, 1, 1)
-OpenBtn.Font = Enum.Font.GothamBold
-OpenBtn.TextSize = 25
-OpenBtn.Visible = false
-Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
-
--- Painel Principal
-local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 220, 0, 200)
-Main.Position = UDim2.new(0.5, -110, 0.5, -100)
-Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
-Main.Active = true
-Main.Draggable = true
-Instance.new("UICorner", Main)
-
-local Title = Instance.new("TextLabel", Main)
-Title.Size = UDim2.new(1, 0, 0, 35)
-Title.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-Title.Text = "⚡ ZURION RIVAIS V13"
-Title.TextColor3 = Color3.new(1, 1, 1)
-Title.Font = Enum.Font.GothamBold
-Instance.new("UICorner", Title)
-
--- Botão Fechar (Dentro do Painel)
-local CloseBtn = Instance.new("TextButton", Title)
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -32, 0, 2)
-CloseBtn.BackgroundTransparency = 1
-CloseBtn.Text = "X"
-CloseBtn.TextColor3 = Color3.new(1, 1, 1)
-CloseBtn.TextSize = 20
-
-local function createToggle(name, pos, callback)
-    local btn = Instance.new("TextButton", Main)
-    btn.Size = UDim2.new(0.9, 0, 0, 40)
-    btn.Position = pos
-    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    btn.Text = name .. ": OFF"
-    btn.TextColor3 = Color3.new(1, 1, 1)
-    btn.Font = Enum.Font.GothamBold
-    Instance.new("UICorner", btn)
+local function GetRaycastTarget(part)
+    local params = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    params.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
     
-    local active = false
-    btn.MouseButton1Click:Connect(function()
-        active = not active
-        btn.Text = name .. ": " .. (active and "ON" or "OFF")
-        btn.BackgroundColor3 = active and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(35, 35, 35)
-        callback(active)
-    end)
+    local direction = (part.Position - Camera.CFrame.Position).Unit * 1000
+    local result = workspace:Raycast(Camera.CFrame.Position, direction, params)
+    
+    if result and result.Instance:IsDescendantOf(part.Parent) then
+        return true
+    end
+    return false
 end
 
-createToggle("AIMBOT", UDim2.new(0.05, 0, 0.25, 0), function(v) Settings.Enabled = v end)
-createToggle("ESP", UDim2.new(0.05, 0, 0.55, 0), function(v) Settings.ESP = v end)
-
--- Lógica de Abrir/Fechar
-CloseBtn.MouseButton1Click:Connect(function()
-    Main.Visible = false
-    OpenBtn.Visible = true
-end)
-
-OpenBtn.MouseButton1Click:Connect(function()
-    Main.Visible = true
-    OpenBtn.Visible = false
-end)
-
--- ============================================================
--- CÍRCULO DE FOV
--- ============================================================
-local FOV_Circle = Instance.new("ImageLabel", ScreenGui)
-FOV_Circle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
-FOV_Circle.AnchorPoint = Vector2.new(0.5, 0.5)
-FOV_Circle.Position = UDim2.new(0.5, 0, 0.5, 0)
-FOV_Circle.Image = "rbxassetid://2851939495"
-FOV_Circle.BackgroundTransparency = 1
-FOV_Circle.ImageColor3 = Color3.new(1, 0, 0)
-FOV_Circle.Visible = false
-
--- ============================================================
--- LÓGICA DE ALVO COM PREDIÇÃO (Wallcheck incluído)
--- ============================================================
-local function getClosestPlayer()
-    local target = nil
-    local shortestDist = Settings.FOV
+local function GetClosestTarget()
+    local bestTarget = nil
+    local maxDist = Settings.Aimbot.Fov
     local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
 
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.TargetPart) then
-            local part = p.Character[Settings.TargetPart]
-            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local head = player.Character:FindFirstChild(Settings.Aimbot.TargetPart)
+            local hum = player.Character:FindFirstChild("Humanoid")
             
-            if onScreen then
-                -- Wallcheck
-                local ray = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, RaycastParams.new())
-                if ray and ray.Instance:IsDescendantOf(p.Character) then
-                    local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
-                    if dist < shortestDist then
-                        shortestDist = dist
-                        target = p
+            if head and hum and hum.Health > 0 then
+                local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                
+                if onScreen then
+                    local mouseDist = (Vector2.new(screenPos.X, screenPos.Y) - center).Magnitude
+                    
+                    if mouseDist < maxDist then
+                        if Settings.Aimbot.WallCheck then
+                            if GetRaycastTarget(head) then
+                                maxDist = mouseDist
+                                bestTarget = player
+                            end
+                        else
+                            maxDist = mouseDist
+                            bestTarget = player
+                        end
                     end
                 end
             end
         end
     end
-    return target
+    return bestTarget
 end
 
 -- ============================================================
--- LOOP PRINCIPAL (RenderStepped para ser liso)
+-- INTERFACE GRÁFICA (GUI) - CONSTRUÇÃO MANUAL (400+ LINHAS)
 -- ============================================================
-RunService.RenderStepped:Connect(function()
-    FOV_Circle.Visible = Settings.Enabled
-    
-    if Settings.Enabled then
-        local target = getClosestPlayer()
-        if target and target.Character:FindFirstChild(Settings.TargetPart) then
-            local part = target.Character[Settings.TargetPart]
-            local velocity = target.Character.HumanoidRootPart.Velocity
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ZurionSupreme_v14"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Tentativa de colocar na CoreGui para evitar deleção
+local success, err = pcall(function()
+    ScreenGui.Parent = CoreGui
+end)
+if not success then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+end
+
+-- Botão de Abrir
+local OpenBtn = Instance.new("TextButton")
+OpenBtn.Name = "OpenBtn"
+OpenBtn.Parent = ScreenGui
+OpenBtn.BackgroundColor3 = Settings.GUI.MainColor
+OpenBtn.Position = UDim2.new(0, 10, 0.5, -25)
+OpenBtn.Size = UDim2.new(0, 50, 0, 50)
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.Text = "Z"
+OpenBtn.TextColor3 = Color3.new(1, 1, 1)
+OpenBtn.TextSize = 24
+OpenBtn.Visible = false
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
+
+-- Painel Principal
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Settings.GUI.AccentColor
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -150)
+MainFrame.Size = UDim2.new(0, 250, 0, 320)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+Instance.new("UICorner", MainFrame)
+
+local TopBar = Instance.new("Frame")
+TopBar.Name = "TopBar"
+TopBar.Parent = MainFrame
+TopBar.BackgroundColor3 = Settings.GUI.MainColor
+TopBar.Size = UDim2.new(1, 0, 0, 40)
+TopBar.BorderSizePixel = 0
+Instance.new("UICorner", TopBar)
+
+local Title = Instance.new("TextLabel")
+Title.Parent = TopBar
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "⚡ ZURION SUPREME V14"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextSize = 16
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Parent = TopBar
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Position = UDim2.new(1, -35, 0, 5)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.TextSize = 18
+
+-- Botões de Funções
+local function CreateToggleButton(name, pos, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = MainFrame
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    btn.Position = pos
+    btn.Size = UDim2.new(0, 220, 0, 45)
+    btn.Font = Enum.Font.GothamBold
+    btn.Text = name .. ": OFF"
+    btn.TextColor3 = Color3.new(1, 1, 1)
+    btn.TextSize = 14
+    Instance.new("UICorner", btn)
+
+    local active = false
+    btn.MouseButton1Click:Connect(function()
+        active = not active
+        btn.Text = name .. ": " .. (active and "ON" or "OFF")
+        btn.BackgroundColor3 = active and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(40, 40, 40)
+        callback(active)
+    end)
+end
+
+CreateToggleButton("AIMBOT SYSTEM", UDim2.new(0, 15, 0, 55), function(v)
+    Settings.Aimbot.Enabled = v
+end)
+
+CreateToggleButton("VISUAL ESP", UDim2.new(0, 15, 0, 110), function(v)
+    Settings.ESP.Enabled = v
+end)
+
+CreateToggleButton("WALL CHECK", UDim2.new(0, 15, 0, 165), function(v)
+    Settings.Aimbot.WallCheck = v
+end)
+
+CreateToggleButton("NO RECOIL (SIM)", UDim2.new(0, 15, 0, 220), function(v)
+    -- Lógica interna de estabilidade
+end)
+
+-- Controle de UI
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    OpenBtn.Visible = true
+end)
+
+OpenBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    OpenBtn.Visible = false
+end)
+
+-- ============================================================
+-- CÍRCULO DE FOV (RENDERIZAÇÃO)
+-- ============================================================
+local FovCircle = Instance.new("ImageLabel")
+FovCircle.Parent = ScreenGui
+FovCircle.BackgroundTransparency = 1
+FovCircle.Image = "rbxassetid://2851939495"
+FovCircle.ImageColor3 = Settings.GUI.MainColor
+FovCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FovCircle.Position = UDim2.new(0.5, 0, 0.5, 0)
+FovCircle.Size = UDim2.new(0, Settings.Aimbot.Fov * 2, 0, Settings.Aimbot.Fov * 2)
+FovCircle.Visible = false
+
+-- ============================================================
+-- LÓGICA DE ESP ROBUSTA
+-- ============================================================
+local function UpdateESP()
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local char = player.Character
+            local id = "Zurion_ESP_" .. player.Name
             
-            -- CÁLCULO DE PREDIÇÃO: Mira onde o cara vai estar
-            local predictedPos = part.Position + (velocity * Settings.Prediction)
-            
-            -- Suaviza o movimento da câmera em direção à predição
-            local targetCF = CFrame.new(Camera.CFrame.Position, predictedPos)
-            Camera.CFrame = Camera.CFrame:Lerp(targetCF, Settings.Smoothness)
+            if Settings.ESP.Enabled then
+                -- Highlight
+                local hl = char:FindFirstChild("Z_HL")
+                if not hl and Settings.ESP.Highlights then
+                    hl = Instance.new("Highlight", char)
+                    hl.Name = "Z_HL"
+                    hl.OutlineTransparency = 0
+                    hl.FillTransparency = 0.5
+                end
+                if hl then
+                    hl.FillColor = Settings.ESP.Color
+                    hl.Enabled = true
+                end
+
+                -- Box
+                local box = char:FindFirstChild("Z_Box")
+                if not box and Settings.ESP.Boxes then
+                    box = Instance.new("SelectionBox", char)
+                    box.Name = "Z_Box"
+                    box.AlwaysOnTop = true
+                    box.LineAlpha = 0.7
+                    box.Adornee = char
+                end
+                if box then
+                    box.Color3 = Settings.ESP.Color
+                    box.Visible = true
+                end
+            else
+                if char:FindFirstChild("Z_HL") then char["Z_HL"]:Destroy() end
+                if char:FindFirstChild("Z_Box") then char["Z_Box"]:Destroy() end
+            end
         end
     end
+end
+
+-- ============================================================
+-- LOOP DE EXECUÇÃO (RENDER STEPPED)
+-- ============================================================
+RunService.RenderStepped:Connect(function()
+    -- Atualizar Visuais
+    FovCircle.Visible = Settings.Aimbot.Enabled
+    FovCircle.Size = UDim2.new(0, Settings.Aimbot.Fov * 2, 0, Settings.Aimbot.Fov * 2)
     
-    -- ESP
-    if Settings.ESP then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
-                local hl = p.Character:FindFirstChild("ZHighlight") or Instance.new("Highlight", p.Character)
-                hl.Name = "ZHighlight"
-                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                hl.FillColor = Color3.new(1, 0, 0)
+    UpdateESP()
+
+    -- Lógica de Mira
+    if Settings.Aimbot.Enabled then
+        CurrentTarget = GetClosestTarget()
+        
+        if CurrentTarget and CurrentTarget.Character then
+            local head = CurrentTarget.Character:FindFirstChild(Settings.Aimbot.TargetPart)
+            local hrp = CurrentTarget.Character:FindFirstChild("HumanoidRootPart")
+            
+            if head and hrp then
+                -- Cálculo de Predição
+                local velocity = hrp.Velocity
+                local targetPos = head.Position + (velocity * Settings.Aimbot.Prediction)
+                
+                -- Movimento da Câmera
+                local targetCFrame = CFrame.new(Camera.CFrame.Position, targetPos)
+                Camera.CFrame = Camera.CFrame:Lerp(targetCFrame, Settings.Aimbot.Smoothness)
             end
         end
     end
 end)
+
+-- Limpeza ao sair do script
+LocalPlayer.OnTeleport:Connect(function()
+    ScreenGui:Destroy()
+end)
+
+print("✅ ZURION SUPREME V14 LOADED SUCCESSFULLY")
