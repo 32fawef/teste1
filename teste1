@@ -1,9 +1,9 @@
 -- ============================================================
--- ZURION AIMBOT PRO v4 — SUAVE + GUI MINIMIZÁVEL
+-- ZURION AIMBOT PRO v5 — GRUDE 100% + SEM BUGS
 -- Fixes:
---   • Aimbot suave: smooth baixo + interpolação natural
---   • GUI minimizável: botão [−] para esconder o painel
---   • Sem travamento: CameraType restaurado corretamente
+--   • Grude perfeito: snap automático quando perto da cabeça
+--   • Sem conflito de câmera: BindToRenderStep pós-câmera
+--   • GUI minimizável: botão [−]/[+]
 -- ============================================================
 
 local Players     = game:GetService("Players")
@@ -15,11 +15,12 @@ local Camera      = workspace.CurrentCamera
 -- CONFIGURAÇÕES
 -- ============================================================
 local CFG = {
-    FOV        = 220,    -- Raio do FOV em pixels
-    SMOOTH     = 0.18,   -- Suavidade: 0.10 = muito suave, 0.50 = agressivo
-    PREDICTION = 0.07,   -- Previsão de movimento
-    RAYCAST    = true,   -- Não mira através de paredes
-    TEAM_CHECK = false,  -- Ignora aliados
+    FOV         = 220,   -- Raio do FOV em pixels
+    SMOOTH      = 0.20,  -- Suavidade de aproximação (0.10–0.40)
+    SNAP_DIST   = 20,    -- Pixels: abaixo disso, grude instantâneo
+    PREDICTION  = 0.07,  -- Previsão de movimento (0 = sem previsão)
+    RAYCAST     = true,  -- Não mira através de paredes
+    TEAM_CHECK  = false, -- Ignora aliados
 }
 
 -- ============================================================
@@ -32,7 +33,7 @@ ScreenGui.DisplayOrder = 999
 local ok = pcall(function() ScreenGui.Parent = game:GetService("CoreGui") end)
 if not ok then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
 
--- ── Círculo FOV ──────────────────────────────────────────────
+-- Círculo FOV
 local FovFrame = Instance.new("Frame")
 FovFrame.AnchorPoint = Vector2.new(0.5, 0.5)
 FovFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
@@ -59,7 +60,7 @@ Dot.ZIndex = 11
 Dot.Parent = FovFrame
 Instance.new("UICorner", Dot).CornerRadius = UDim.new(1, 0)
 
--- ── Painel principal ─────────────────────────────────────────
+-- Painel
 local Panel = Instance.new("Frame")
 Panel.Size = UDim2.new(0, 230, 0, 310)
 Panel.Position = UDim2.new(0, 20, 0, 20)
@@ -70,7 +71,6 @@ Panel.Draggable = true
 Panel.Parent = ScreenGui
 Instance.new("UICorner", Panel).CornerRadius = UDim.new(0, 10)
 
--- Barra de título
 local TBar = Instance.new("Frame")
 TBar.Size = UDim2.new(1, 0, 0, 36)
 TBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
@@ -89,7 +89,6 @@ TLbl.TextSize = 13
 TLbl.TextXAlignment = Enum.TextXAlignment.Left
 TLbl.Parent = TBar
 
--- Botão minimizar [−] / [+]
 local MinBtn = Instance.new("TextButton")
 MinBtn.Size = UDim2.new(0, 30, 0, 26)
 MinBtn.Position = UDim2.new(1, -36, 0, 5)
@@ -102,14 +101,12 @@ MinBtn.TextSize = 18
 MinBtn.Parent = TBar
 Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 6)
 
--- Corpo do painel (escondido ao minimizar)
 local Body = Instance.new("Frame")
 Body.Size = UDim2.new(1, 0, 1, -36)
 Body.Position = UDim2.new(0, 0, 0, 36)
 Body.BackgroundTransparency = 1
 Body.Parent = Panel
 
--- ── Helpers de UI ────────────────────────────────────────────
 local function mkBtn(parent, size, pos, color, text)
     local b = Instance.new("TextButton")
     b.Size = size; b.Position = pos
@@ -133,7 +130,7 @@ end
 
 local AimBtn    = mkBtn(Body, UDim2.new(1,-16,0,50), UDim2.new(0,8,0,10),  Color3.fromRGB(120,0,0), "🎯 AIMBOT: OFF")
 local RayBtn    = mkBtn(Body, UDim2.new(1,-16,0,36), UDim2.new(0,8,0,68),  Color3.fromRGB(0,80,120), "RAYCAST: ON ✔")
-local SmoothLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,114), "Suavidade: 18%")
+local SmoothLbl = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,114), "Suavidade: 20%")
 local SmoothM   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(0,8,0,134),  Color3.fromRGB(40,40,40), " − ")
 local SmoothP   = mkBtn(Body, UDim2.new(0,60,0,32), UDim2.new(1,-68,0,134),Color3.fromRGB(40,40,40), " + ")
 local FovLbl2   = mkLbl(Body, UDim2.new(1,-16,0,18), UDim2.new(0,8,0,176), "FOV: 220px")
@@ -150,19 +147,13 @@ local _AIM = false
 local _minimized = false
 
 -- ============================================================
--- MINIMIZAR / MAXIMIZAR
+-- MINIMIZAR
 -- ============================================================
 MinBtn.MouseButton1Click:Connect(function()
     _minimized = not _minimized
-    if _minimized then
-        Body.Visible = false
-        Panel.Size = UDim2.new(0, 230, 0, 36)  -- Só a barra de título
-        MinBtn.Text = "+"
-    else
-        Body.Visible = true
-        Panel.Size = UDim2.new(0, 230, 0, 310)
-        MinBtn.Text = "−"
-    end
+    Body.Visible = not _minimized
+    Panel.Size = _minimized and UDim2.new(0, 230, 0, 36) or UDim2.new(0, 230, 0, 310)
+    MinBtn.Text = _minimized and "+" or "−"
 end)
 
 -- ============================================================
@@ -170,14 +161,11 @@ end)
 -- ============================================================
 local function estaVisivel(origem, targetPart)
     if not CFG.RAYCAST then return true end
-
     local localChar = LocalPlayer.Character
     local alvoChar  = targetPart.Parent
-
     local params = RaycastParams.new()
     params.FilterDescendantsInstances = {localChar, alvoChar}
     params.FilterType = Enum.RaycastFilterType.Exclude
-
     local direcao = targetPart.Position - origem
     local resultado = workspace:Raycast(origem, direcao, params)
     return resultado == nil
@@ -194,29 +182,23 @@ local function getMelhorAlvo()
     for _, p in pairs(Players:GetPlayers()) do
         if p == LocalPlayer then continue end
         if CFG.TEAM_CHECK and p.Team == LocalPlayer.Team then continue end
-
         local char = p.Character
         if not char then continue end
-
         local head = char:FindFirstChild("Head")
         local hum  = char:FindFirstChild("Humanoid")
         if not head or not hum or hum.Health <= 0 then continue end
-
         local sp, onScreen = Camera:WorldToViewportPoint(head.Position)
         if not onScreen then continue end
-
         local d = (Vector2.new(sp.X, sp.Y) - centro).Magnitude
         if d > CFG.FOV then continue end
-
         if not estaVisivel(camPos, head) then continue end
-
         if d < menorDist then
             menorDist = d
             melhor = p
         end
     end
 
-    return melhor
+    return melhor, menorDist
 end
 
 -- ============================================================
@@ -270,14 +252,14 @@ PredP.MouseButton1Click:Connect(function()
 end)
 
 -- ============================================================
--- LOOP PRINCIPAL
--- FIX TRAVAMENTO: usa slerp angular em vez de Lerp completo
--- Isso move APENAS a direção da câmera, sem afetar a posição
+-- LOOP PRINCIPAL — BindToRenderStep com prioridade MÁXIMA
+-- Roda DEPOIS do sistema de câmera padrão do Roblox
+-- Isso garante que nossa câmera sobrescreve sem conflito
 -- ============================================================
-RunService.RenderStepped:Connect(function()
+RunService:BindToRenderStep("ZurionAim", Enum.RenderPriority.Camera.Value + 1, function()
     if not _AIM then return end
 
-    local alvo = getMelhorAlvo()
+    local alvo, distPixels = getMelhorAlvo()
     if not alvo or not alvo.Character then return end
 
     local head = alvo.Character:FindFirstChild("Head")
@@ -285,14 +267,14 @@ RunService.RenderStepped:Connect(function()
     local part = head or hrp
     if not part then return end
 
-    -- Velocidade real do servidor (sem multiplicar por 60)
+    -- Velocidade real (studs/segundo, sem multiplicar por 60)
     local vel = Vector3.new(0, 0, 0)
     if hrp then
         local ok2, v = pcall(function() return hrp.AssemblyLinearVelocity end)
         if ok2 and v then vel = v end
     end
 
-    -- Posição prevista
+    -- Posição prevista da cabeça
     local posAlvo = part.Position + (vel * CFG.PREDICTION)
 
     -- Posição atual da câmera (não muda)
@@ -302,17 +284,28 @@ RunService.RenderStepped:Connect(function()
     local direcaoAtual = Camera.CFrame.LookVector
     local direcaoAlvo  = (posAlvo - camPos).Unit
 
-    -- Interpolação suave da direção (slerp manual)
-    -- Isso NÃO move a câmera, só gira ela suavemente
-    local novaDirecao = direcaoAtual:Lerp(direcaoAlvo, CFG.SMOOTH)
+    -- SISTEMA DE GRUDE DUPLO:
+    -- Se está perto do centro (< SNAP_DIST pixels): snap instantâneo = grude 100%
+    -- Se está longe: interpolação suave para aproximação natural
+    local smooth
+    if distPixels and distPixels < CFG.SNAP_DIST then
+        smooth = 1.0  -- Grude instantâneo — câmera TRAVA na cabeça
+    else
+        smooth = CFG.SMOOTH  -- Aproximação suave
+    end
 
-    -- Reconstrói o CFrame mantendo a posição original
-    -- upVector fixo em (0,1,0) evita rotação indesejada (roll)
-    local novoCFrame = CFrame.new(camPos, camPos + novaDirecao)
-    Camera.CFrame = novoCFrame
+    -- Interpola a direção (não a posição — evita câmera "voar")
+    local novaDirecao = direcaoAtual:Lerp(direcaoAlvo, smooth)
+
+    -- Reconstrói CFrame: posição original + nova direção
+    -- upVector (0,1,0) fixo evita rotação Z (roll) = sem bug de tela
+    Camera.CFrame = CFrame.new(camPos, camPos + novaDirecao)
 end)
 
 -- Restaura câmera ao sair
 LocalPlayer.AncestryChanged:Connect(function()
-    pcall(function() Camera.CameraType = Enum.CameraType.Custom end)
+    pcall(function()
+        RunService:UnbindFromRenderStep("ZurionAim")
+        Camera.CameraType = Enum.CameraType.Custom
+    end)
 end)
