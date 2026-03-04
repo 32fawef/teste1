@@ -1,96 +1,135 @@
--- [[ ZURION PRO v12 - RIVALS SPECIAL ]] --
+-- ============================================================
+-- ZURION v13 - RIVALS DEFINITIVE EDITION
+-- Fix: CFrame Prediction (Não treme) + GUI Toggle
+-- ============================================================
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
--- CONFIGURAÇÕES DE ELITE
+-- CONFIGURAÇÕES RIVAIS
 local Settings = {
-    Aimbot = false,
-    SilentAim = false,
-    NoRecoil = false,
+    Enabled = false,
     ESP = false,
-    FOV = 150,
-    Smoothness = 0.35,
-    TeamCheck = true
+    FOV = 250,
+    Smoothness = 0.2, -- 0.1 suave | 0.5 forte
+    Prediction = 0.15, -- Ajusta para a velocidade do Rivals
+    TargetPart = "Head"
 }
 
--- [[ INTERFACE ESTILO HUB ]] --
+-- ============================================================
+-- INTERFACE (GUI) COM BOTÃO DE ABRIR/FECHAR
+-- ============================================================
 local ScreenGui = Instance.new("ScreenGui", game:GetService("CoreGui") or LocalPlayer.PlayerGui)
+ScreenGui.Name = "ZurionV13"
+
+-- Botão de Abrir (Sempre visível quando fechado)
+local OpenBtn = Instance.new("TextButton", ScreenGui)
+OpenBtn.Size = UDim2.new(0, 50, 0, 50)
+OpenBtn.Position = UDim2.new(0, 10, 0.5, -25)
+OpenBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+OpenBtn.Text = "Z"
+OpenBtn.TextColor3 = Color3.new(1, 1, 1)
+OpenBtn.Font = Enum.Font.GothamBold
+OpenBtn.TextSize = 25
+OpenBtn.Visible = false
+Instance.new("UICorner", OpenBtn).CornerRadius = UDim.new(1, 0)
+
+-- Painel Principal
 local Main = Instance.new("Frame", ScreenGui)
-Main.Size = UDim2.new(0, 350, 0, 250)
-Main.Position = UDim2.new(0.5, -175, 0.5, -125)
-Main.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
-Main.BorderSizePixel = 0
+Main.Size = UDim2.new(0, 220, 0, 200)
+Main.Position = UDim2.new(0.5, -110, 0.5, -100)
+Main.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
 Main.Active = true
 Main.Draggable = true
-Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", Main)
 
--- Título e Design
-local TopBar = Instance.new("Frame", Main)
-TopBar.Size = UDim2.new(1, 0, 0, 35)
-TopBar.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-Instance.new("UICorner", TopBar)
-
-local Title = Instance.new("TextLabel", TopBar)
-Title.Size = UDim2.new(1, 0, 1, 0)
-Title.Text = "⚡ ZURION V12 - RIVALS HUB"
+local Title = Instance.new("TextLabel", Main)
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+Title.Text = "⚡ ZURION RIVAIS V13"
 Title.TextColor3 = Color3.new(1, 1, 1)
 Title.Font = Enum.Font.GothamBold
-Title.BackgroundTransparency = 1
+Instance.new("UICorner", Title)
 
--- Container de Botões (Grid Layout)
-local Container = Instance.new("Frame", Main)
-Container.Position = UDim2.new(0, 10, 0, 45)
-Container.Size = UDim2.new(1, -20, 1, -55)
-Container.BackgroundTransparency = 1
+-- Botão Fechar (Dentro do Painel)
+local CloseBtn = Instance.new("TextButton", Title)
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -32, 0, 2)
+CloseBtn.BackgroundTransparency = 1
+CloseBtn.Text = "X"
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.TextSize = 20
 
-local Layout = Instance.new("UIGridLayout", Container)
-Layout.CellSize = UDim2.new(0, 155, 0, 45)
-Layout.CellPadding = UDim2.new(0, 10, 0, 10)
-
--- Função Criar Botão Pro
-local function AddToggle(name, default, callback)
-    local btn = Instance.new("TextButton", Container)
-    btn.Text = name .. ": " .. (default and "ON" or "OFF")
-    btn.BackgroundColor3 = default and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(30, 30, 30)
+local function createToggle(name, pos, callback)
+    local btn = Instance.new("TextButton", Main)
+    btn.Size = UDim2.new(0.9, 0, 0, 40)
+    btn.Position = pos
+    btn.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    btn.Text = name .. ": OFF"
     btn.TextColor3 = Color3.new(1, 1, 1)
     btn.Font = Enum.Font.GothamBold
     Instance.new("UICorner", btn)
     
-    local state = default
+    local active = false
     btn.MouseButton1Click:Connect(function()
-        state = not state
-        btn.Text = name .. ": " .. (state and "ON" or "OFF")
-        btn.BackgroundColor3 = state and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(30, 30, 30)
-        callback(state)
+        active = not active
+        btn.Text = name .. ": " .. (active and "ON" or "OFF")
+        btn.BackgroundColor3 = active and Color3.fromRGB(0, 150, 0) or Color3.fromRGB(35, 35, 35)
+        callback(active)
     end)
 end
 
--- [[ SISTEMA DE FOV ]] --
+createToggle("AIMBOT", UDim2.new(0.05, 0, 0.25, 0), function(v) Settings.Enabled = v end)
+createToggle("ESP", UDim2.new(0.05, 0, 0.55, 0), function(v) Settings.ESP = v end)
+
+-- Lógica de Abrir/Fechar
+CloseBtn.MouseButton1Click:Connect(function()
+    Main.Visible = false
+    OpenBtn.Visible = true
+end)
+
+OpenBtn.MouseButton1Click:Connect(function()
+    Main.Visible = true
+    OpenBtn.Visible = false
+end)
+
+-- ============================================================
+-- CÍRCULO DE FOV
+-- ============================================================
 local FOV_Circle = Instance.new("ImageLabel", ScreenGui)
+FOV_Circle.Size = UDim2.new(0, Settings.FOV * 2, 0, Settings.FOV * 2)
 FOV_Circle.AnchorPoint = Vector2.new(0.5, 0.5)
 FOV_Circle.Position = UDim2.new(0.5, 0, 0.5, 0)
-FOV_Circle.Size = UDim2.new(0, Settings.FOV*2, 0, Settings.FOV*2)
 FOV_Circle.Image = "rbxassetid://2851939495"
-FOV_Circle.ImageColor3 = Color3.new(1, 0, 0)
 FOV_Circle.BackgroundTransparency = 1
+FOV_Circle.ImageColor3 = Color3.new(1, 0, 0)
 FOV_Circle.Visible = false
 
--- [[ LOGICA RIVALS ]] --
-local function getTarget()
-    local target, dist = nil, Settings.FOV
+-- ============================================================
+-- LÓGICA DE ALVO COM PREDIÇÃO (Wallcheck incluído)
+-- ============================================================
+local function getClosestPlayer()
+    local target = nil
+    local shortestDist = Settings.FOV
+    local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
     for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
-            -- Team Check (Opcional)
-            if Settings.TeamCheck and p.Team == LocalPlayer.Team then continue end
+        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild(Settings.TargetPart) then
+            local part = p.Character[Settings.TargetPart]
+            local pos, onScreen = Camera:WorldToViewportPoint(part.Position)
             
-            local pos, onScreen = Camera:WorldToViewportPoint(p.Character.Head.Position)
             if onScreen then
-                local mag = (Vector2.new(pos.X, pos.Y) - Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)).Magnitude
-                if mag < dist then
-                    dist = mag
-                    target = p
+                -- Wallcheck
+                local ray = workspace:Raycast(Camera.CFrame.Position, part.Position - Camera.CFrame.Position, RaycastParams.new())
+                if ray and ray.Instance:IsDescendantOf(p.Character) then
+                    local dist = (Vector2.new(pos.X, pos.Y) - center).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        target = p
+                    end
                 end
             end
         end
@@ -98,46 +137,36 @@ local function getTarget()
     return target
 end
 
--- [[ ADICIONAR FUNÇÕES ]] --
-AddToggle("Aimbot", false, function(v) Settings.Aimbot = v; FOV_Circle.Visible = v end)
-AddToggle("Silent Aim", false, function(v) Settings.SilentAim = v end)
-AddToggle("ESP Box", false, function(v) Settings.ESP = v end)
-AddToggle("No Recoil", false, function(v) Settings.NoRecoil = v end)
-
--- [[ LOOP DE EXECUÇÃO ]] --
+-- ============================================================
+-- LOOP PRINCIPAL (RenderStepped para ser liso)
+-- ============================================================
 RunService.RenderStepped:Connect(function()
-    local target = getTarget()
+    FOV_Circle.Visible = Settings.Enabled
     
-    -- Aimbot Visível
-    if Settings.Aimbot and target then
-        Camera.CFrame = Camera.CFrame:Lerp(CFrame.new(Camera.CFrame.Position, target.Character.Head.Position), Settings.Smoothness)
-    end
-    
-    -- ESP Box e Highlight
-    for _, p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            local hl = p.Character:FindFirstChild("ZurionHL")
-            if Settings.ESP then
-                if not hl then
-                    hl = Instance.new("Highlight", p.Character)
-                    hl.Name = "ZurionHL"
-                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    hl.FillColor = Color3.new(1, 0, 0)
-                end
-            elseif hl then hl:Destroy() end
+    if Settings.Enabled then
+        local target = getClosestPlayer()
+        if target and target.Character:FindFirstChild(Settings.TargetPart) then
+            local part = target.Character[Settings.TargetPart]
+            local velocity = target.Character.HumanoidRootPart.Velocity
+            
+            -- CÁLCULO DE PREDIÇÃO: Mira onde o cara vai estar
+            local predictedPos = part.Position + (velocity * Settings.Prediction)
+            
+            -- Suaviza o movimento da câmera em direção à predição
+            local targetCF = CFrame.new(Camera.CFrame.Position, predictedPos)
+            Camera.CFrame = Camera.CFrame:Lerp(targetCF, Settings.Smoothness)
         end
     end
-end)
-
--- No Recoil (Simulação para Rivals)
-LocalPlayer.CharacterAdded:Connect(function(char)
-    if Settings.NoRecoil then
-        -- No Rivals, o recoil é controlado por scripts locais de arma. 
-        -- Este comando tenta resetar o tremor da camera.
-        RunService.Heartbeat:Connect(function()
-            if Settings.NoRecoil and Settings.Aimbot then
-                 Camera.CFrame = Camera.CFrame * CFrame.Angles(0,0,0)
+    
+    -- ESP
+    if Settings.ESP then
+        for _, p in pairs(Players:GetPlayers()) do
+            if p ~= LocalPlayer and p.Character then
+                local hl = p.Character:FindFirstChild("ZHighlight") or Instance.new("Highlight", p.Character)
+                hl.Name = "ZHighlight"
+                hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                hl.FillColor = Color3.new(1, 0, 0)
             end
-        end)
+        end
     end
 end)
